@@ -1,0 +1,83 @@
+name: CI
+
+# The same gates agents run before finishing (types, lint, tests, build), plus
+# the leak scan: the repository is public. A red check here means the change is
+# not done, whoever wrote it.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A new push to a pull request makes its previous run pointless.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run verify
+
+  leak-scan:
+    # No secret and no personal data in any commit of any branch, ever: the
+    # whole history, every time. A pull request is judged by the rules of the
+    # branch it targets, so it cannot loosen them for itself, and nothing it
+    # carries can silence a finding (.gitleaksignore, "gitleaks:allow").
+    runs-on: ubuntu-latest
+    env:
+      GITLEAKS_VERSION: 8.18.4
+      GITLEAKS_SHA256: ba6dbb656933921c775ee5a2d1c13a91046e7952e9d919f9bac4cec61d628e7d
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Rules
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = pull_request ]; then
+            git cat-file -e "origin/$BASE_REF:.gitleaks.toml" 2>/dev/null || {
+              echo "::error::$BASE_REF has no .gitleaks.toml: merge the leak scan into it first, then re-run this pull request."
+              exit 1
+            }
+            git show "origin/$BASE_REF:.gitleaks.toml" > "$RUNNER_TEMP/rules.toml"
+          else
+            cp .gitleaks.toml "$RUNNER_TEMP/rules.toml"
+          fi
+      - name: No .gitleaksignore, now or ever
+        run: |
+          if git log --all --format= --name-only | grep -qx '.gitleaksignore'; then
+            echo "::error::A commit adds .gitleaksignore. Findings are fixed, never silenced: remove it from history."
+            exit 1
+          fi
+          rm -f .gitleaksignore
+      - name: Install gitleaks
+        run: |
+          curl -sSfL -o "$RUNNER_TEMP/gitleaks.tgz" \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          echo "$GITLEAKS_SHA256  $RUNNER_TEMP/gitleaks.tgz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/gitleaks.tgz" -C "$RUNNER_TEMP" gitleaks
+      - name: Scan the whole history
+        run: |
+          "$RUNNER_TEMP/gitleaks" detect --source . --log-opts="--all" \
+            --config "$RUNNER_TEMP/rules.toml" --ignore-gitleaks-allow \
+            --redact --no-banner --no-color --verbose
+      - name: Scan every author, committer and commit message
+        run: |
+          git log --all --format='%an <%ae>%n%cn <%ce>%n%B' > "$RUNNER_TEMP/commit-messages.txt"
+          "$RUNNER_TEMP/gitleaks" detect --no-git --source "$RUNNER_TEMP/commit-messages.txt" \
+            --config "$RUNNER_TEMP/rules.toml" -i /dev/null --ignore-gitleaks-allow \
+            --redact --no-banner --no-color --verbose

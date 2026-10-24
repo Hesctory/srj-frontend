@@ -1,0 +1,189 @@
+import { useCallback, useMemo, useState } from "react";
+import type { PaymentLine } from "@/types/payment";
+import {
+  parseAmount,
+  sumMoney,
+} from "@/features/cashier/tuition/utils/payments";
+
+/**
+ * The compose-step form state: one date and one or more tenders.
+ *
+ * Amounts live as strings so a half-typed "35." is not silently coerced to 35;
+ * `lines` converts to the numeric shape the API expects, and is `null` while
+ * anything is invalid.
+ */
+
+export interface TenderDraft {
+  /** Stable identity for the React key and the aria-labels. Never sent. */
+  key: string;
+  paymentMethodId: number | "";
+  /** Raw field text. Toward the debt — never includes a card commission. */
+  amount: string;
+  reference: string;
+}
+
+export interface TenderIssues {
+  paymentMethodId?: string;
+  amount?: string;
+}
+
+let sequence = 0;
+const emptyTender = (): TenderDraft => ({
+  key: `tender-${(sequence += 1)}`,
+  paymentMethodId: "",
+  amount: "",
+  reference: "",
+});
+
+export interface PaymentDraftController {
+  date: string;
+  tenders: TenderDraft[];
+  /** Per-tender validation, keyed by `TenderDraft.key`. */
+  issues: Record<string, TenderIssues>;
+  /** Whole-form refusal, e.g. the total exceeding the outstanding balance. */
+  totalIssue: string | null;
+  /** Sum of the parsed amounts. Toward the debt, before any commission. */
+  total: number;
+  /** `outstanding - total`, floored at 0. */
+  remaining: number;
+  /** The API payload, or `null` while the draft is invalid. */
+  lines: PaymentLine[] | null;
+  canRemoveTender: boolean;
+  setDate: (date: string) => void;
+  updateTender: (key: string, patch: Partial<Omit<TenderDraft, "key">>) => void;
+  addTender: () => void;
+  removeTender: (key: string) => void;
+  /** Drops the unpaid remainder into the last tender. */
+  fillRemaining: () => void;
+  reset: () => void;
+}
+
+/**
+ * @param outstanding Ceiling for the total. The server rejects (400) anything
+ *   above the outstanding balance, so the form refuses it first.
+ * @param defaultDate The statement's `asOf` — the server's today. The page
+ *   never calls `new Date()` for a business date.
+ */
+const usePaymentDraft = (
+  outstanding: number,
+  defaultDate: string,
+): PaymentDraftController => {
+  const [date, setDate] = useState(defaultDate);
+  const [tenders, setTenders] = useState<TenderDraft[]>(() => [emptyTender()]);
+
+  const updateTender = useCallback(
+    (key: string, patch: Partial<Omit<TenderDraft, "key">>) =>
+      setTenders((current) =>
+        current.map((tender) =>
+          tender.key === key ? { ...tender, ...patch } : tender,
+        ),
+      ),
+    [],
+  );
+
+  const addTender = useCallback(
+    () => setTenders((current) => [...current, emptyTender()]),
+    [],
+  );
+
+  const removeTender = useCallback(
+    (key: string) =>
+      setTenders((current) =>
+        // Never leave the form with nothing to fill in.
+        current.length > 1
+          ? current.filter((tender) => tender.key !== key)
+          : current,
+      ),
+    [],
+  );
+
+  const reset = useCallback(() => {
+    setDate(defaultDate);
+    setTenders([emptyTender()]);
+  }, [defaultDate]);
+
+  const { issues, total, lines } = useMemo(() => {
+    const collected: Record<string, TenderIssues> = {};
+    const parsed: PaymentLine[] = [];
+    // Every readable amount counts toward the running total, even on a tender
+    // whose method is still unset — picking a method is a condition of
+    // *submitting*, not of arithmetic. Summing only complete tenders left the
+    // cashier staring at "S/ 0.00" with a figure typed in front of them, and
+    // silently disarmed the over-the-balance guard.
+    const amounts: number[] = [];
+    let valid = true;
+
+    tenders.forEach((tender) => {
+      const amount = parseAmount(tender.amount);
+      const tenderIssues: TenderIssues = {};
+
+      if (tender.paymentMethodId === "") {
+        tenderIssues.paymentMethodId = "Elige un medio de pago";
+      }
+      if (tender.amount.trim() === "") {
+        tenderIssues.amount = "Ingresa un monto";
+      } else if (amount === null) {
+        tenderIssues.amount = "Debe ser un monto mayor a 0";
+      }
+
+      collected[tender.key] = tenderIssues;
+      if (amount !== null) amounts.push(amount);
+
+      if (tender.paymentMethodId !== "" && amount !== null) {
+        parsed.push({
+          paymentMethodId: tender.paymentMethodId,
+          amount,
+          reference: tender.reference.trim() || null,
+        });
+      } else {
+        valid = false;
+      }
+    });
+
+    return {
+      issues: collected,
+      total: sumMoney(amounts),
+      lines: valid && parsed.length > 0 ? parsed : null,
+    };
+  }, [tenders]);
+
+  // `outstanding <= 0` means the caller could not work out a ceiling; leave the
+  // limit to the server rather than blocking a legitimate payment.
+  const totalIssue =
+    outstanding > 0 && total > outstanding
+      ? "El total supera el saldo pendiente."
+      : null;
+
+  return {
+    date,
+    tenders,
+    issues,
+    totalIssue,
+    total,
+    remaining: Math.max(0, Math.round((outstanding - total) * 100) / 100),
+    lines: totalIssue ? null : lines,
+    canRemoveTender: tenders.length > 1,
+    setDate,
+    updateTender,
+    addTender,
+    removeTender,
+    fillRemaining: () =>
+      setTenders((current) => {
+        const paid = sumMoney(
+          current.map((tender) => parseAmount(tender.amount) ?? 0),
+        );
+        const left = Math.round((outstanding - paid) * 100) / 100;
+        if (left <= 0) return current;
+        const last = current[current.length - 1];
+        const lastAmount = parseAmount(last.amount) ?? 0;
+        return current.map((tender, index) =>
+          index === current.length - 1
+            ? { ...tender, amount: (lastAmount + left).toFixed(2) }
+            : tender,
+        );
+      }),
+    reset,
+  };
+};
+
+export default usePaymentDraft;

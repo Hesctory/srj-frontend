@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+#
+# pre-push — no secret and no personal data leaves this machine. The repository is public: a pushed
+# commit is published at once and cannot be taken back.
+#
+# For every ref being pushed it runs gitleaks with .gitleaks.toml over every commit that remote does
+# not have yet: the changes of each commit (gitleaks' git mode), and its author, committer and message.
+# Any finding refuses the whole push. So does a missing gitleaks (no scan, no push), and so does a
+# .gitleaksignore file, which gitleaks would honour: findings are fixed, never silenced. Inline
+# "gitleaks:allow" comments are ignored (--ignore-gitleaks-allow).
+#
+# "That remote" is the one named in the push, on purpose: a commit another remote already has (a
+# private repository, say) is still new to this one, so it is scanned.
+#
+# Install once per clone, as a copy; after pulling a change to this file, read it, then copy it again:
+#   install -m 755 .githooks/pre-push .git/hooks/pre-push
+# A copy and not core.hooksPath: a hook run straight from the working tree would run whatever the last
+# checked-out branch put there, as whoever pushes.
+
+set -uo pipefail
+top="$(git rev-parse --show-toplevel)" || exit 1
+remote="$1"
+rules="$top/.gitleaks.toml"
+gitleaks="$(command -v gitleaks || echo /usr/local/libexec/srj/tools/gitleaks)"
+
+refuse() { echo "pre-push: refused: $*" >&2; exit 1; }
+[ -x "$gitleaks" ] || refuse "gitleaks is not installed (README.md, \"Installation\")"
+[ -f "$rules" ] || refuse "$rules is missing"
+[ ! -e "$top/.gitleaksignore" ] || refuse ".gitleaksignore silences findings; delete it and fix what it hides"
+
+work="$(mktemp -d)"
+trap 'rm -rf "$work"' EXIT
+scan=(--config "$rules" --ignore-gitleaks-allow --redact --no-banner --no-color --verbose)
+
+found=0
+while read -r local_ref local_sha remote_ref remote_sha; do
+    case "$local_sha" in *[!0]*) ;; *) continue ;; esac   # a deletion sends nothing
+    if git cat-file -e "$remote_sha^{commit}" 2>/dev/null; then
+        range="$remote_sha..$local_sha"
+    else
+        range="$local_sha --not --remotes=$remote"         # a new branch: what this remote's branches lack
+    fi
+    # shellcheck disable=SC2086 # $range is several git arguments on purpose
+    count="$(git rev-list --count $range </dev/null)" || refuse "git rev-list failed for $local_ref"
+    [ "$count" -gt 0 ] || continue
+    echo "pre-push: scanning $count commit(s) for $remote_ref on $remote" >&2
+
+    # shellcheck disable=SC2086
+    if git log --format= --name-only $range </dev/null | grep -qx '.gitleaksignore'; then
+        echo "pre-push: a commit for $remote_ref adds .gitleaksignore" >&2
+        found=1
+    fi
+
+    "$gitleaks" detect --source "$top" --log-opts="$range" "${scan[@]}" </dev/null >&2 || found=1
+
+    # shellcheck disable=SC2086
+    git log --format='%an <%ae>%n%cn <%ce>%n%B' $range </dev/null > "$work/commit-messages.txt"
+    "$gitleaks" detect --no-git --source "$work/commit-messages.txt" -i /dev/null "${scan[@]}" \
+        </dev/null >&2 || found=1
+done
+
+[ "$found" -eq 0 ] || refuse "a secret or personal data in the commits above, which $remote does not have yet. Rewrite the commit that added it before it reaches $remote (CLAUDE.md, \"Public repository\")."
+exit 0

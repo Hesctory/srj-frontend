@@ -1,0 +1,78 @@
+# This repository is public: anything not ignored here can end up published.
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+# *.local covers .env.local (VITE_API_URL, one per clone). No env file is
+# committed.
+*.local
+.env
+.env.*
+!.env.example
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Claude Code / GitHub config
+# Agent instructions (CLAUDE.md, .claude/skills) are versioned; only the
+# machine-local permission settings stay private.
+.claude/settings.local.json
+skills-lock.json
+# .github stays private except the CI workflows, which gate every push.
+.github/*
+!.github/workflows/
+
+# Browser-check output (ui-check skill): screenshots show development data.
+/.ui-check/
+
+# The maintainer's local working files, at the repository root only. Anchored
+# with "/" so a file of the same name elsewhere (Contracts/) is still tracked.
+/plan.md
+/lunch_assignations.txt
+/lunches.txt
+/StaffMemberFormat.txt
+/endpoints.md
+/enrollment-payments-backend-contract.md
+/StudentsDocumentsContract.md
+/studentRegistrationCardFormat.md
+/Voutcher_series_contract.md
+/ModifiedProductsContract.md
+/ProductAccountsContract.md
+/ProductsContract.md
+/DepositsWithdrawalsContract.md
+/Enrollment_charges_contract.md
+/Enrollment_charges_contract_v2.md
+/Enrollment_payments_contract.md
+/Enrollment_payments_contract_v2.md
+/Payment_documents_contract.md
+/opencode.json
+/Products Catalog Redesign.html
+
+# Reference: old react-pdf report layouts (kept for how the PDFs looked,
+# esp. the registration card). Not compiled/imported.
+/EnrolledStudentsDocument.tsx
+/BirthdaysDocument.tsx
+/WithdrawnStudentsDocument.tsx
+/RegistrationCardDocument.tsx
+
+# Private to the maintainer: agent-instruction review decisions, and the old
+# dev-login note (the login is now in the ui-check skill).
+/decisions.md
+/Login.md
