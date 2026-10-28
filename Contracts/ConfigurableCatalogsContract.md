@@ -188,7 +188,7 @@ The body every `POST` returns alongside `201 Created`: the id of the row just wr
 }
 ```
 
-Create or replace the prices for one year, level, shift and fee concept.
+The prices for one year, level, shift and fee concept.
 
 ## `VoucherSeries`
 
