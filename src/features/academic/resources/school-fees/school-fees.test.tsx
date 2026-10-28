@@ -6,6 +6,9 @@ import { HttpError, Notification, type GetListParams } from "react-admin";
 import { renderWithAdmin } from "@/test/render-with-admin";
 import type { SchoolFee } from "@/types/school-fee";
 import { formatMoney } from "@/utils/money";
+
+// Testing Library collapses the no-break space Intl puts after "S/".
+const money = (value: number) => formatMoney(value).replace(/\s+/g, " ");
 import { SchoolFeesList } from "./school-fees-list";
 import { SchoolFeesCreate } from "./school-fees-create";
 import { SchoolFeesEdit } from "./school-fees-edit";
@@ -130,9 +133,9 @@ describe("SchoolFeesList", { timeout: 30_000 }, () => {
     expect(await screen.findByText("Secundaria")).toBeInTheDocument();
     expect(screen.getAllByText("Mañana").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Normal").length).toBeGreaterThan(0);
-    expect(screen.getAllByText(formatMoney(350)).length).toBeGreaterThan(0);
-    expect(screen.getByText(formatMoney(420.5))).toBeInTheDocument();
-    expect(screen.getAllByText(formatMoney(200)).length).toBe(2);
+    expect(screen.getAllByText(money(350)).length).toBeGreaterThan(0);
+    expect(screen.getByText(money(420.5))).toBeInTheDocument();
+    expect(screen.getAllByText(money(200)).length).toBe(2);
 
     await waitFor(() =>
       expect(dataProvider.getList).toHaveBeenCalledWith(

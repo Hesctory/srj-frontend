@@ -1,5 +1,5 @@
 import { Box, Chip, Divider, Paper, Stack, Typography } from "@mui/material";
-import type { PaymentPlan } from "@/types/payment";
+import type { PaymentPlan, PaymentPlanTender } from "@/types/payment";
 import {
   formatIsoDate,
   formatMoney,
@@ -7,7 +7,6 @@ import {
 } from "@/features/cashier/tuition/utils/charges";
 import {
   ALLOCATION_KIND_LABEL,
-  formatRate,
   hasCommission,
 } from "@/features/cashier/tuition/utils/payments";
 
@@ -63,6 +62,20 @@ const MoneyLine = ({
     </Typography>
   </Box>
 );
+
+/**
+ * Where a tender's commission came from. Staff type the figure on the card
+ * terminal's slip; the suggestion (rate × amount) stays beside a typed one so
+ * a typo stands out. `null` for a tender with nothing to explain.
+ */
+const commissionSource = (tender: PaymentPlanTender): string | null => {
+  if (tender.commissionTyped) {
+    return tender.suggestedCommission === null
+      ? "Comisión digitada"
+      : `Comisión digitada · sugerida ${formatMoney(tender.suggestedCommission)}`;
+  }
+  return tender.suggestedCommission === null ? null : "Comisión sugerida";
+};
 
 /**
  * Renders a settlement plan: what the payer is charged, through which tenders,
@@ -152,7 +165,7 @@ const PaymentPlanSummary = ({ plan, totalLabel }: PaymentPlanSummaryProps) => {
           }}
         >
           {plan.tenders.map((tender, index) => {
-            const rate = formatRate(tender.rate);
+            const source = commissionSource(tender);
             return (
               <Box
                 key={`${tender.paymentMethodId}-${index}`}
@@ -178,15 +191,24 @@ const PaymentPlanSummary = ({ plan, totalLabel }: PaymentPlanSummaryProps) => {
                     {tender.cashAccountName}
                     {tender.reference ? ` · Op. ${tender.reference}` : ""}
                   </Typography>
-                  {rate && (
-                    <Typography
-                      variant="caption"
-                      color="text.secondary"
-                      sx={{ display: "block" }}
-                    >
-                      {formatMoney(tender.amount)} + {rate} (
-                      {formatMoney(tender.commission)})
-                    </Typography>
+                  {source && (
+                    <>
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        sx={{ display: "block" }}
+                      >
+                        {formatMoney(tender.amount)} + comisión{" "}
+                        {formatMoney(tender.commission)}
+                      </Typography>
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        sx={{ display: "block" }}
+                      >
+                        {source}
+                      </Typography>
+                    </>
                   )}
                 </Box>
                 <Typography

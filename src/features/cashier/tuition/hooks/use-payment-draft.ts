@@ -1,7 +1,8 @@
 import { useCallback, useMemo, useState } from "react";
-import type { PaymentLine } from "@/types/payment";
+import type { PaymentLine, PaymentMethod } from "@/types/payment";
 import {
   parseAmount,
+  parseCommission,
   sumMoney,
 } from "@/features/cashier/tuition/utils/payments";
 
@@ -20,11 +21,17 @@ export interface TenderDraft {
   /** Raw field text. Toward the debt — never includes a card commission. */
   amount: string;
   reference: string;
+  /**
+   * Raw field text, read off the card terminal's slip. Blank takes the
+   * server's suggestion; ignored on a method that takes no commission.
+   */
+  commission: string;
 }
 
 export interface TenderIssues {
   paymentMethodId?: string;
   amount?: string;
+  commission?: string;
 }
 
 let sequence = 0;
@@ -33,6 +40,7 @@ const emptyTender = (): TenderDraft => ({
   paymentMethodId: "",
   amount: "",
   reference: "",
+  commission: "",
 });
 
 export interface PaymentDraftController {
@@ -49,6 +57,8 @@ export interface PaymentDraftController {
   /** The API payload, or `null` while the draft is invalid. */
   lines: PaymentLine[] | null;
   canRemoveTender: boolean;
+  /** True when the tender's method charges a card commission today. */
+  takesCommission: (tender: TenderDraft) => boolean;
   setDate: (date: string) => void;
   updateTender: (key: string, patch: Partial<Omit<TenderDraft, "key">>) => void;
   addTender: () => void;
@@ -63,10 +73,13 @@ export interface PaymentDraftController {
  *   above the outstanding balance, so the form refuses it first.
  * @param defaultDate The statement's `asOf` — the server's today. The page
  *   never calls `new Date()` for a business date.
+ * @param methods The catalogue; a method's `rate` says whether a line paid
+ *   with it asks for a commission.
  */
 const usePaymentDraft = (
   outstanding: number,
   defaultDate: string,
+  methods: PaymentMethod[],
 ): PaymentDraftController => {
   const [date, setDate] = useState(defaultDate);
   const [tenders, setTenders] = useState<TenderDraft[]>(() => [emptyTender()]);
@@ -102,6 +115,15 @@ const usePaymentDraft = (
     setTenders([emptyTender()]);
   }, [defaultDate]);
 
+  const takesCommission = useCallback(
+    (tender: TenderDraft) =>
+      methods.some(
+        (method) =>
+          method.id === tender.paymentMethodId && method.rate !== null,
+      ),
+    [methods],
+  );
+
   const { issues, total, lines } = useMemo(() => {
     const collected: Record<string, TenderIssues> = {};
     const parsed: PaymentLine[] = [];
@@ -126,14 +148,34 @@ const usePaymentDraft = (
         tenderIssues.amount = "Debe ser un monto mayor a 0";
       }
 
+      // Only a card line sends one: a commission left behind after switching
+      // to cash would be refused (422), and the field is hidden by then.
+      const commission = takesCommission(tender)
+        ? parseCommission(tender.commission)
+        : null;
+      if (commission === undefined) {
+        tenderIssues.commission = "Debe ser un monto de 0 o más";
+      } else if (
+        commission !== null &&
+        amount !== null &&
+        commission >= amount
+      ) {
+        tenderIssues.commission = "Debe ser menor al monto";
+      }
+
       collected[tender.key] = tenderIssues;
       if (amount !== null) amounts.push(amount);
 
-      if (tender.paymentMethodId !== "" && amount !== null) {
+      if (
+        tender.paymentMethodId !== "" &&
+        amount !== null &&
+        !tenderIssues.commission
+      ) {
         parsed.push({
           paymentMethodId: tender.paymentMethodId,
           amount,
           reference: tender.reference.trim() || null,
+          commission: commission ?? null,
         });
       } else {
         valid = false;
@@ -145,7 +187,7 @@ const usePaymentDraft = (
       total: sumMoney(amounts),
       lines: valid && parsed.length > 0 ? parsed : null,
     };
-  }, [tenders]);
+  }, [tenders, takesCommission]);
 
   // `outstanding <= 0` means the caller could not work out a ceiling; leave the
   // limit to the server rather than blocking a legitimate payment.
@@ -163,6 +205,7 @@ const usePaymentDraft = (
     remaining: Math.max(0, Math.round((outstanding - total) * 100) / 100),
     lines: totalIssue ? null : lines,
     canRemoveTender: tenders.length > 1,
+    takesCommission,
     setDate,
     updateTender,
     addTender,

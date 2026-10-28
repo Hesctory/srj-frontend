@@ -9,6 +9,9 @@ import type {
   PaymentPreviewResponse,
 } from "@/types/payment";
 import { formatMoney } from "@/utils/money";
+
+// Testing Library collapses the no-break space Intl puts after "S/".
+const money = (value: number) => formatMoney(value).replace(/\s+/g, " ");
 import PaymentDrawer from "./payment-drawer";
 
 const methods = [
@@ -131,9 +134,9 @@ describe("PaymentDrawer — card commission", { timeout: 30_000 }, () => {
 
     expect(await screen.findByText(/Comisión digitada/)).toBeInTheDocument();
     expect(
-      screen.getByText(new RegExp(`sugerida ${formatMoney(10.5)}`)),
+      screen.getByText(new RegExp(`sugerida ${money(10.5)}`)),
     ).toBeInTheDocument();
-    expect(screen.getAllByText(formatMoney(361.5)).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(money(361.5)).length).toBeGreaterThan(0);
   });
 
   it("sends null when the commission is left blank and shows the suggestion", async () => {
@@ -210,21 +213,13 @@ describe("PaymentDrawer — card commission", { timeout: 30_000 }, () => {
     );
 
     expect(
-      await screen.findByText(`Sugerida: ${formatMoney(10.5)}`),
+      await screen.findByText(`Sugerida: ${money(10.5)}`),
     ).toBeInTheDocument();
   });
 
-  it("marks the line the server refuses a commission on (422)", async () => {
+  it("refuses a commission not less than the line's amount before asking", async () => {
     const user = userEvent.setup();
     const dataProvider = makeDataProvider();
-    dataProvider.previewEnrollmentPayment.mockRejectedValueOnce(
-      new HttpError("Unprocessable Entity", 422, {
-        errors: {
-          "lines[0].commission":
-            "La comisión debe ser menor al monto de la línea (S/ 350.00).",
-        },
-      }),
-    );
     renderDrawer(dataProvider);
 
     await fillLine(user, "Tarjeta de Crédito", "350");
@@ -234,12 +229,36 @@ describe("PaymentDrawer — card commission", { timeout: 30_000 }, () => {
     );
     await user.click(screen.getByRole("button", { name: "Calcular plan" }));
 
+    expect(
+      await screen.findByText("Debe ser menor al monto"),
+    ).toBeInTheDocument();
+    expect(dataProvider.previewEnrollmentPayment).not.toHaveBeenCalled();
+  });
+
+  it("marks the line the server refuses a commission on (422)", async () => {
+    const user = userEvent.setup();
+    const dataProvider = makeDataProvider();
+    dataProvider.previewEnrollmentPayment.mockRejectedValueOnce(
+      new HttpError("Unprocessable Entity", 422, {
+        errors: {
+          // A backdated payment, before the card rate was in force.
+          "lines[0].commission": "Este medio de pago no cobra comisión.",
+        },
+      }),
+    );
+    renderDrawer(dataProvider);
+
+    await fillLine(user, "Tarjeta de Crédito", "350");
+    await user.type(
+      screen.getByLabelText("Comisión del medio de pago 1"),
+      "12",
+    );
+    await user.click(screen.getByRole("button", { name: "Calcular plan" }));
+
     const field = await screen.findByLabelText("Comisión del medio de pago 1");
     await waitFor(() => expect(field).toHaveAttribute("aria-invalid", "true"));
     expect(
-      screen.getAllByText(
-        "La comisión debe ser menor al monto de la línea (S/ 350.00).",
-      ).length,
+      screen.getAllByText("Este medio de pago no cobra comisión.").length,
     ).toBeGreaterThan(0);
   });
 });

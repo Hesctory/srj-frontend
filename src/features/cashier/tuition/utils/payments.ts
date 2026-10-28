@@ -21,13 +21,6 @@ export const secondsUntil = (iso: string): number => {
 export const formatCountdown = (seconds: number) =>
   `${Math.floor(seconds / 60)}:${String(Math.max(0, seconds) % 60).padStart(2, "0")}`;
 
-/** 0.03304 → "3.304 %". Trailing zeros trimmed; `null` methods take no commission. */
-export const formatRate = (rate: number | null): string | null => {
-  if (rate === null) return null;
-  const percent = rate * 100;
-  return `${Number(percent.toFixed(3))} %`;
-};
-
 /** Only a card commission is worth calling out; the rest read from `description`. */
 export const ALLOCATION_KIND_LABEL: Partial<Record<AllocationKind, string>> = {
   CARD_COMMISSION: "Comisión",
@@ -51,6 +44,19 @@ export const parseAmount = (input: string): number | null => {
   const value = Number(trimmed);
   if (!Number.isFinite(value) || value <= 0) return null;
   // Two decimals: the backend settles in soles and cents.
+  return Math.round(value * 100) / 100;
+};
+
+/**
+ * Parses the commission typed off a card terminal's slip. Blank is `null`
+ * (take the server's suggestion) and `0` is a real answer (the school absorbs
+ * it), so unlike `parseAmount` zero passes. `undefined` means unreadable.
+ */
+export const parseCommission = (input: string): number | null | undefined => {
+  const trimmed = input.trim().replace(",", ".");
+  if (trimmed === "") return null;
+  const value = Number(trimmed);
+  if (!Number.isFinite(value) || value < 0) return undefined;
   return Math.round(value * 100) / 100;
 };
 

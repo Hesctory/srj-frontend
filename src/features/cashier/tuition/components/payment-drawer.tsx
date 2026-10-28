@@ -24,6 +24,10 @@ import useCountdown from "@/features/cashier/tuition/hooks/use-countdown";
 import usePaymentDraft from "@/features/cashier/tuition/hooks/use-payment-draft";
 import type { PaymentDrawerState } from "@/features/cashier/tuition/hooks/use-payment-drawer";
 import usePaymentFlow from "@/features/cashier/tuition/hooks/use-payment-flow";
+import {
+  ACQUIRER_DOCUMENT_FIELD,
+  lineFieldErrors,
+} from "@/features/cashier/tuition/utils/payment-error";
 
 interface PaymentDrawerProps {
   state: PaymentDrawerState;
@@ -37,6 +41,8 @@ interface PaymentDrawerProps {
 }
 
 const TITLE_ID = "payment-drawer-title";
+
+const NO_METHODS: PaymentMethod[] = [];
 
 /**
  * The payment panel: charge details, or the two-step collect flow.
@@ -96,7 +102,15 @@ const PaymentDrawerBody = ({
   const [showErrors, setShowErrors] = useState(false);
   const [issueOpen, setIssueOpen] = useState(false);
 
-  const draft = usePaymentDraft(target?.outstanding ?? 0, asOf ?? "");
+  // The catalogue order puts Efectivo first, which is the order a cashier
+  // reaches for; alphabetical would bury it under "Plin" and "Transferencia".
+  const { data: methods = NO_METHODS, isLoading: loadingMethods } =
+    useGetList<PaymentMethod>("payment-methods", {
+      pagination: { page: 1, perPage: 100 },
+      sort: { field: "id", order: "ASC" },
+    });
+
+  const draft = usePaymentDraft(target?.outstanding ?? 0, asOf ?? "", methods);
   const flow = usePaymentFlow(
     target?.obligationIds
       ? { obligationIds: target.obligationIds }
@@ -105,13 +119,16 @@ const PaymentDrawerBody = ({
   const secondsLeft = useCountdown(flow.preview?.expiresAt ?? null);
   const expired = flow.step === "review" && secondsLeft === 0;
 
-  // The catalogue order puts Efectivo first, which is the order a cashier
-  // reaches for; alphabetical would bury it under "Plin" and "Transferencia".
-  const { data: methods, isLoading: loadingMethods } =
-    useGetList<PaymentMethod>("payment-methods", {
-      pagination: { page: 1, perPage: 100 },
-      sort: { field: "id", order: "ASC" },
-    });
+  const fieldErrors = flow.error?.fieldErrors ?? {};
+  const lineErrors = lineFieldErrors(fieldErrors);
+  const missingDocument = fieldErrors[ACQUIRER_DOCUMENT_FIELD];
+  // Line errors are shown on the field they name; the alert only points there.
+  const otherFieldErrors = Object.entries(fieldErrors).filter(
+    ([field, message]) =>
+      !field.startsWith("lines[") &&
+      field !== ACQUIRER_DOCUMENT_FIELD &&
+      message !== flow.error?.message,
+  );
 
   const handlePreview = () => {
     if (!draft.lines) {
@@ -190,15 +207,23 @@ const PaymentDrawerBody = ({
             onClose={flow.dismissError}
             sx={{ mb: 3 }}
           >
-            <AlertTitle>No se pudo continuar</AlertTitle>
-            {flow.error.message}
-            {Object.entries(flow.error.fieldErrors).length > 0 && (
+            {/* A boleta above S/ 700 needs the payer's DNI or CE. The server's
+                message names the student; the fix is on their record, not in
+                this form, so the title says what is missing. */}
+            <AlertTitle>
+              {missingDocument
+                ? "Falta el documento de identidad"
+                : "No se pudo continuar"}
+            </AlertTitle>
+            {missingDocument ??
+              (Object.keys(lineErrors).length > 0
+                ? "Corrige los datos marcados en los medios de pago."
+                : flow.error.message)}
+            {otherFieldErrors.length > 0 && (
               <Box component="ul" sx={{ pl: 2.5, m: 0, mt: 1 }}>
-                {Object.entries(flow.error.fieldErrors).map(
-                  ([field, message]) => (
-                    <li key={field}>{message}</li>
-                  ),
-                )}
+                {otherFieldErrors.map(([field, message]) => (
+                  <li key={field}>{message}</li>
+                ))}
               </Box>
             )}
           </Alert>
@@ -210,9 +235,11 @@ const PaymentDrawerBody = ({
           <TenderLinesEditor
             draft={draft}
             target={target}
-            methods={methods ?? []}
+            methods={methods}
             loadingMethods={loadingMethods}
             showErrors={showErrors}
+            serverErrors={lineErrors}
+            lastPlan={flow.lastPlan}
           />
         )}
 
