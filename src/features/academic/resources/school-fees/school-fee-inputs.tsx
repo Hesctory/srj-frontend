@@ -1,3 +1,5 @@
+import { useEffect } from "react";
+import { useFormContext, useWatch } from "react-hook-form";
 import {
   NumberInput,
   ReferenceInput,
@@ -48,9 +50,26 @@ const amountValidators = [required(), amountInRange];
 /** Eight short fields: on a wide screen the form stays at a readable width. */
 export const FORM_WIDTH = { width: "100%", maxWidth: 960, mx: "auto" };
 
+/**
+ * Re-checks the matrícula when the pensión changes. Field validators only
+ * run for the field being edited, so without this a cap error quoting the
+ * old pensión would stay on screen after the pensión was raised.
+ */
+const RecheckEnrollmentOnTuition = () => {
+  const { trigger, getFieldState } = useFormContext();
+  const tuition = useWatch({ name: "tuitionCost" });
+
+  useEffect(() => {
+    if (getFieldState("enrollmentPrice").error) trigger("enrollmentPrice");
+  }, [tuition, trigger, getFieldState]);
+
+  return null;
+};
+
 /** The fields Create and Edit share, in the order the contract lists them. */
 export const SchoolFeeInputs = () => (
   <>
+    <RecheckEnrollmentOnTuition />
     <FormSection title="Tarifa para">
       <ReferenceInput source="schoolYearId" reference="school-years">
         <SelectInput

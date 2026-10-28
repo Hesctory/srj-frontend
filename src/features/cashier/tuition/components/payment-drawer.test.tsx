@@ -261,6 +261,38 @@ describe("PaymentDrawer — card commission", { timeout: 30_000 }, () => {
       screen.getAllByText("Este medio de pago no cobra comisión.").length,
     ).toBeGreaterThan(0);
   });
+
+  it("clears the server's line error once the cashier edits the line", async () => {
+    const user = userEvent.setup();
+    const dataProvider = makeDataProvider();
+    dataProvider.previewEnrollmentPayment.mockRejectedValueOnce(
+      new HttpError("Unprocessable Entity", 422, {
+        errors: {
+          "lines[0].commission": "Este medio de pago no cobra comisión.",
+        },
+      }),
+    );
+    renderDrawer(dataProvider);
+
+    await fillLine(user, "Tarjeta de Crédito", "350");
+    await user.type(
+      screen.getByLabelText("Comisión del medio de pago 1"),
+      "12",
+    );
+    await user.click(screen.getByRole("button", { name: "Calcular plan" }));
+    expect(
+      (await screen.findAllByText("Este medio de pago no cobra comisión."))
+        .length,
+    ).toBeGreaterThan(0);
+
+    await user.clear(screen.getByLabelText("Comisión del medio de pago 1"));
+
+    await waitFor(() =>
+      expect(
+        screen.queryByText("Este medio de pago no cobra comisión."),
+      ).not.toBeInTheDocument(),
+    );
+  });
 });
 
 describe("PaymentDrawer — boleta above S/ 700", { timeout: 30_000 }, () => {

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import DescriptionIcon from "@mui/icons-material/Description";
 import CloseIcon from "@mui/icons-material/Close";
@@ -121,6 +121,17 @@ const PaymentDrawerBody = ({
 
   const fieldErrors = flow.error?.fieldErrors ?? {};
   const lineErrors = lineFieldErrors(fieldErrors);
+  const hasLineErrors = Object.keys(lineErrors).length > 0;
+
+  // A 422 on `lines[i]` describes the lines as they were sent. Once the
+  // cashier edits them it is stale — and after a removal it would point at
+  // whichever line moved into that position — so it goes.
+  const { dismissError } = flow;
+  useEffect(() => {
+    if (hasLineErrors) dismissError();
+    // Only an edit of the lines should clear it, not the error arriving.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draft.tenders]);
   const missingDocument = fieldErrors[ACQUIRER_DOCUMENT_FIELD];
   // Line errors are shown on the field they name; the alert only points there.
   const otherFieldErrors = Object.entries(fieldErrors).filter(
@@ -216,7 +227,7 @@ const PaymentDrawerBody = ({
                 : "No se pudo continuar"}
             </AlertTitle>
             {missingDocument ??
-              (Object.keys(lineErrors).length > 0
+              (hasLineErrors
                 ? "Corrige los datos marcados en los medios de pago."
                 : flow.error.message)}
             {otherFieldErrors.length > 0 && (

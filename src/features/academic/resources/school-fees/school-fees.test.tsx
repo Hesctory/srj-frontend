@@ -263,6 +263,32 @@ describe("SchoolFeesCreate", { timeout: 30_000 }, () => {
 
     expect(await screen.findByText(message)).toBeInTheDocument();
   });
+
+  it("drops the cap error once the pensión is raised above the matrícula", async () => {
+    const user = userEvent.setup();
+    const dataProvider = makeDataProvider();
+    renderCreate(dataProvider);
+
+    await fillCreateForm(user, {
+      enrollment: "500",
+      tuition: "445",
+      registration: "200",
+    });
+    await user.click(screen.getByRole("button", { name: "Guardar" }));
+    expect(
+      await screen.findByText(/La matrícula no puede superar la pensión/),
+    ).toBeInTheDocument();
+
+    const tuition = screen.getByLabelText(/Pensión/);
+    await user.clear(tuition);
+    await user.type(tuition, "600");
+
+    await waitFor(() =>
+      expect(
+        screen.queryByText(/La matrícula no puede superar la pensión/),
+      ).not.toBeInTheDocument(),
+    );
+  });
 });
 
 describe("SchoolFeesCreate — unsaved changes", { timeout: 30_000 }, () => {
