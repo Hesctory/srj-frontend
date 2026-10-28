@@ -265,6 +265,25 @@ describe("SchoolFeesCreate", { timeout: 30_000 }, () => {
   });
 });
 
+describe("SchoolFeesCreate — unsaved changes", { timeout: 30_000 }, () => {
+  beforeEach(() => {
+    window.location.hash = "#/school-fees/create";
+  });
+
+  it("asks before Volver throws typed amounts away", async () => {
+    const user = userEvent.setup();
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+    renderCreate(makeDataProvider());
+
+    await user.type(await screen.findByLabelText(/Matrícula/), "350");
+    await user.click(screen.getByRole("link", { name: /Volver/ }));
+
+    expect(confirm).toHaveBeenCalled();
+    expect(screen.queryByText("Listado")).not.toBeInTheDocument();
+    confirm.mockRestore();
+  });
+});
+
 describe("SchoolFeesEdit", { timeout: 30_000 }, () => {
   beforeEach(() => {
     window.location.hash = "#/school-fees/4";

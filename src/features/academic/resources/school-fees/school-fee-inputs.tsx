@@ -45,6 +45,9 @@ const enrollmentWithinTuition = (
 
 const amountValidators = [required(), amountInRange];
 
+/** Eight short fields: on a wide screen the form stays at a readable width. */
+export const FORM_WIDTH = { width: "100%", maxWidth: 960, mx: "auto" };
+
 /** The fields Create and Edit share, in the order the contract lists them. */
 export const SchoolFeeInputs = () => (
   <>

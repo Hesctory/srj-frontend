@@ -64,7 +64,7 @@ export const SchoolFeesList = () => {
     <List
       filters={schoolFeesFilters}
       debounce={500}
-      sx={{ width: "100%", maxWidth: 1040, mx: "auto" }}
+      sx={{ width: "fit-content", maxWidth: "100%", mx: "auto" }}
     >
       {small ? (
         <SimpleList<SchoolFee>
@@ -82,7 +82,11 @@ export const SchoolFeesList = () => {
 
 const SchoolFeesTable = () => (
   // Fee rows cannot be deleted, so no row selection and no bulk Borrar.
-  <DataTable empty={<NoMatch />} bulkActionButtons={false}>
+  <DataTable
+    empty={<NoMatch />}
+    bulkActionButtons={false}
+    sx={{ "& th, & td": { whiteSpace: "nowrap" } }}
+  >
     <DataTable.Col source="levelName" label="Nivel" />
     <DataTable.Col source="shiftName" label="Turno" />
     <DataTable.Col source="schoolFeeConceptName" label="Concepto" />

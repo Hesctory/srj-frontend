@@ -1,6 +1,6 @@
 import { Edit, SimpleForm } from "react-admin";
-import CRUDToolBar from "@/app/layout/crud-toolbar";
-import { SchoolFeeInputs } from "./school-fee-inputs";
+import SchoolFeeToolbar from "./school-fee-toolbar";
+import { FORM_WIDTH, SchoolFeeInputs } from "./school-fee-inputs";
 
 /**
  * Fee rows cannot be deleted (the contract has no DELETE), so the toolbar
@@ -8,8 +8,8 @@ import { SchoolFeeInputs } from "./school-fee-inputs";
  * form with the server's message instead of being undone after the fact.
  */
 export const SchoolFeesEdit = () => (
-  <Edit mutationMode="pessimistic" redirect="list">
-    <SimpleForm toolbar={<CRUDToolBar save />} warnWhenUnsavedChanges>
+  <Edit mutationMode="pessimistic" redirect="list" sx={FORM_WIDTH}>
+    <SimpleForm toolbar={<SchoolFeeToolbar />}>
       <SchoolFeeInputs />
     </SimpleForm>
   </Edit>
