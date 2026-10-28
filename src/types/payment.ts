@@ -50,6 +50,12 @@ export interface PaymentLine {
   amount: number;
   /** Bank or POS operation number. Belongs to the line, not to the payment. */
   reference?: string | null;
+  /**
+   * Card commission in soles, read off the terminal's slip and charged on top
+   * of `amount`. `null` takes the server's suggestion; `0` charges none. A
+   * value above 0 on a method with no card rate is refused (422).
+   */
+  commission?: number | null;
 }
 
 export interface PaymentPreviewRequest {
@@ -81,6 +87,7 @@ export interface PaymentPlanTender {
   amount: number;
   /** `null` when this method takes no commission — then `commission` is 0. */
   rate: number | null;
+  /** The commission applied: the one staff typed, or the suggestion. */
   commission: number;
   /** `amount + commission` — what the payer is charged on this tender. */
   charged: number;
@@ -89,6 +96,10 @@ export interface PaymentPlanTender {
   cashAccountId: number;
   cashAccountName: string;
   reference: string | null;
+  /** Rate × amount, rounded up to S/ 0.10. `null` on a method with no card rate. */
+  suggestedCommission: number | null;
+  /** True when `commission` is what staff typed rather than the suggestion. */
+  commissionTyped: boolean;
 }
 
 export interface PaymentPlanLine {
@@ -205,4 +216,6 @@ export interface Payment {
 export interface PaymentMethod {
   id: number;
   name: string;
+  /** The card rate in force today; `null` when the method takes no commission. */
+  rate: number | null;
 }

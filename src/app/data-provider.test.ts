@@ -254,4 +254,54 @@ describe("dataProvider", () => {
       from: "2026-03-01",
     });
   });
+
+  it("previews an enrollment payment with each line's typed commission", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ previewToken: "t" }));
+
+    await dataProvider.previewEnrollmentPayment({
+      obligationIds: [7],
+      date: "2026-10-28",
+      lines: [
+        { paymentMethodId: 2, amount: 350, reference: null, commission: 11.5 },
+        { paymentMethodId: 1, amount: 50, reference: null, commission: null },
+      ],
+    });
+
+    const request = lastRequest();
+    expect(request.method).toBe("POST");
+    expect(request.url.href).toBe(`${API_URL}/enrollment-payments/preview`);
+    expect(request.body.lines).toEqual([
+      { paymentMethodId: 2, amount: 350, reference: null, commission: 11.5 },
+      { paymentMethodId: 1, amount: 50, reference: null, commission: null },
+    ]);
+  });
+
+  it("confirms an enrollment payment by sending the preview token alone", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ id: 3 }));
+
+    await dataProvider.confirmEnrollmentPayment("t");
+
+    const request = lastRequest();
+    expect(request.method).toBe("POST");
+    expect(request.url.href).toBe(`${API_URL}/enrollment-payments`);
+    expect(request.body).toEqual({ previewToken: "t" });
+  });
+
+  it("maps school fees to plain /school-fees CRUD", async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse([], { "Content-Range": "school-fees 0-0/0" }),
+    );
+
+    await dataProvider.getList("school-fees", {
+      pagination: { page: 1, perPage: 25 },
+      sort: { field: "id", order: "ASC" },
+      filter: { schoolYearId: 3 },
+    });
+
+    const { url } = lastRequest();
+    expect(url.pathname).toBe(new URL(`${API_URL}/school-fees`).pathname);
+    expect(JSON.parse(url.searchParams.get("filter") ?? "")).toEqual({
+      schoolYearId: 3,
+    });
+  });
 });

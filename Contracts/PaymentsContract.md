@@ -69,15 +69,17 @@ A settled payment as stored.
     "tenders": [
       {
         "paymentMethodId": 1,
-        "paymentMethodName": "…",  // string | null
+        "paymentMethodName": "…",      // string | null
         "amount": 352.8,
-        "rate": 352.8,             // number | null — The commission rate applied, or null when this method takes none.
-        "commission": 352.8,
-        "charged": 352.8,          // What the payer is charged on this line: `Amount + Commission`.
-        "netToAccount": 352.8,     // What lands in CashAccountName — equals Amount, since the commission never arrives.
+        "rate": 352.8,                 // number | null — The commission rate applied, or null when this method takes none.
+        "commission": 352.8,           // The commission applied: typed by staff, or the suggestion.
+        "charged": 352.8,              // What the payer is charged on this line: `Amount + Commission`.
+        "netToAccount": 352.8,         // What lands in CashAccountName — equals Amount, since the commission never arrives.
         "cashAccountId": 1,
-        "cashAccountName": "…",    // string | null
-        "reference": "…"           // string | null
+        "cashAccountName": "…",        // string | null
+        "reference": "…",              // string | null
+        "suggestedCommission": 352.8,  // number | null — The suggested commission.
+        "commissionTyped": true        // True when Commission is what staff typed.
       }
     ],
     "allocations": [

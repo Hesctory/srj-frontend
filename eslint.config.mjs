@@ -68,7 +68,6 @@ const restrictedHttpGlobals = [
 // code instead. Remove an entry as soon as its file is migrated.
 const LEGACY_HTTP_OUTSIDE_APP = [
   // TODO: move these endpoints into src/app/data-provider.ts.
-  "src/features/cashier/tuition/api/payments.ts",
   "src/features/billing/api/payment-documents.ts",
 ];
 const LEGACY_LONG_FILES = [

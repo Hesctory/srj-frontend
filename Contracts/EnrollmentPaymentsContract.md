@@ -27,15 +27,17 @@ Registering a payment against outstanding obligations, in a preview and a commit
     "tenders": [
       {
         "paymentMethodId": 1,
-        "paymentMethodName": "…",  // string | null
+        "paymentMethodName": "…",      // string | null
         "amount": 352.8,
-        "rate": 352.8,             // number | null — The commission rate applied, or null when this method takes none.
-        "commission": 352.8,
-        "charged": 352.8,          // What the payer is charged on this line: `Amount + Commission`.
-        "netToAccount": 352.8,     // What lands in CashAccountName — equals Amount, since the commission never arrives.
+        "rate": 352.8,                 // number | null — The commission rate applied, or null when this method takes none.
+        "commission": 352.8,           // The commission applied: typed by staff, or the suggestion.
+        "charged": 352.8,              // What the payer is charged on this line: `Amount + Commission`.
+        "netToAccount": 352.8,         // What lands in CashAccountName — equals Amount, since the commission never arrives.
         "cashAccountId": 1,
-        "cashAccountName": "…",    // string | null
-        "reference": "…"           // string | null
+        "cashAccountName": "…",        // string | null
+        "reference": "…",              // string | null
+        "suggestedCommission": 352.8,  // number | null — The suggested commission.
+        "commissionTyped": true        // True when Commission is what staff typed.
       }
     ],
     "allocations": [
@@ -60,7 +62,8 @@ Registering a payment against outstanding obligations, in a preview and a commit
 ```jsonc
 {
   "id": 1,
-  "name": "…"   // string | null
+  "name": "…",    // string | null
+  "rate": 352.8   // number | null — The card commission rate in force today; null when the method takes no commission.
 }
 ```
 
@@ -75,8 +78,9 @@ Registering a payment against outstanding obligations, in a preview and a commit
   "lines": [
     {
       "paymentMethodId": 1,
-      "amount": 352.8,   // What the payer puts toward their debt on this line, before any commission.
-      "reference": "…"   // string | null — Operation number from the bank or POS.
+      "amount": 352.8,      // What the payer puts toward their debt on this line, before any commission.
+      "reference": "…",     // string | null — Operation number from the bank or POS.
+      "commission": 352.8   // number | null — Card commission in soles, charged on top of Amount.
     }
   ]
 }
@@ -99,15 +103,17 @@ What the cashier is proposing to collect. Nothing is written for a preview.
     "tenders": [
       {
         "paymentMethodId": 1,
-        "paymentMethodName": "…",  // string | null
+        "paymentMethodName": "…",      // string | null
         "amount": 352.8,
-        "rate": 352.8,             // number | null — The commission rate applied, or null when this method takes none.
-        "commission": 352.8,
-        "charged": 352.8,          // What the payer is charged on this line: `Amount + Commission`.
-        "netToAccount": 352.8,     // What lands in CashAccountName — equals Amount, since the commission never arrives.
+        "rate": 352.8,                 // number | null — The commission rate applied, or null when this method takes none.
+        "commission": 352.8,           // The commission applied: typed by staff, or the suggestion.
+        "charged": 352.8,              // What the payer is charged on this line: `Amount + Commission`.
+        "netToAccount": 352.8,         // What lands in CashAccountName — equals Amount, since the commission never arrives.
         "cashAccountId": 1,
-        "cashAccountName": "…",    // string | null
-        "reference": "…"           // string | null
+        "cashAccountName": "…",        // string | null
+        "reference": "…",              // string | null
+        "suggestedCommission": 352.8,  // number | null — The suggested commission.
+        "commissionTyped": true        // True when Commission is what staff typed.
       }
     ],
     "allocations": [
@@ -135,8 +141,9 @@ What the cashier is proposing to collect. Nothing is written for a preview.
   "lines": [
     {
       "paymentMethodId": 1,
-      "amount": 352.8,   // What the payer puts toward their debt on this line, before any commission.
-      "reference": "…"   // string | null — Operation number from the bank or POS.
+      "amount": 352.8,      // What the payer puts toward their debt on this line, before any commission.
+      "reference": "…",     // string | null — Operation number from the bank or POS.
+      "commission": 352.8   // number | null — Card commission in soles, charged on top of Amount.
     }
   ]
 }
@@ -198,8 +205,9 @@ What the cashier is proposing to collect. Nothing is written for a preview.
   "lines": [
     {
       "paymentMethodId": 1,
-      "amount": 352.8,   // What the payer puts toward their debt on this line, before any commission.
-      "reference": "…"   // string | null — Operation number from the bank or POS.
+      "amount": 352.8,      // What the payer puts toward their debt on this line, before any commission.
+      "reference": "…",     // string | null — Operation number from the bank or POS.
+      "commission": 352.8   // number | null — Card commission in soles, charged on top of Amount.
     }
   ]
 }
@@ -232,8 +240,9 @@ What the cashier is proposing to collect. Nothing is written for a preview.
   "lines": [
     {
       "paymentMethodId": 1,
-      "amount": 352.8,   // What the payer puts toward their debt on this line, before any commission.
-      "reference": "…"   // string | null — Operation number from the bank or POS.
+      "amount": 352.8,      // What the payer puts toward their debt on this line, before any commission.
+      "reference": "…",     // string | null — Operation number from the bank or POS.
+      "commission": 352.8   // number | null — Card commission in soles, charged on top of Amount.
     }
   ]
 }
@@ -263,8 +272,9 @@ What the cashier is proposing to collect. Nothing is written for a preview.
   "lines": [
     {
       "paymentMethodId": 1,
-      "amount": 352.8,   // What the payer puts toward their debt on this line, before any commission.
-      "reference": "…"   // string | null — Operation number from the bank or POS.
+      "amount": 352.8,      // What the payer puts toward their debt on this line, before any commission.
+      "reference": "…",     // string | null — Operation number from the bank or POS.
+      "commission": 352.8   // number | null — Card commission in soles, charged on top of Amount.
     }
   ]
 }
