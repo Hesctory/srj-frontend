@@ -42,7 +42,13 @@ const SchoolYearFilter: FC<SchoolYearFilterProps> = () => {
     <FormControl size="small" sx={{ minWidth: 160 }}>
       <InputLabel>Año Escolar</InputLabel>
       <Select
-        value={schoolYearId}
+        // Until the years load, the filter's id matches no option; MUI warns
+        // about an out-of-range value, so show it empty for that moment.
+        value={
+          schoolYears.some((sy) => String(sy.id) === String(schoolYearId))
+            ? schoolYearId
+            : ""
+        }
         label="Año Escolar"
         onChange={(e) => apply(e.target.value)}
       >

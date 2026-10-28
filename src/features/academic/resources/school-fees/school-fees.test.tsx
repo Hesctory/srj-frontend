@@ -136,6 +136,10 @@ describe("SchoolFeesList", { timeout: 30_000 }, () => {
     expect(screen.getAllByText(money(350)).length).toBeGreaterThan(0);
     expect(screen.getByText(money(420.5))).toBeInTheDocument();
     expect(screen.getAllByText(money(200)).length).toBe(2);
+    // Fee rows cannot be deleted: no row selection, no bulk Borrar.
+    expect(
+      screen.queryByRole("checkbox", { name: /Seleccionar todo/ }),
+    ).not.toBeInTheDocument();
 
     await waitFor(() =>
       expect(dataProvider.getList).toHaveBeenCalledWith(
