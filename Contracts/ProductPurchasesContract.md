@@ -95,10 +95,12 @@ The body every `POST` returns alongside `201 Created`: the id of the row just wr
     "tenders": [
       {
         "paymentMethodId": 1,
-        "paymentMethodName": "…",  // string | null
+        "paymentMethodName": "…",      // string | null
         "amount": 352.8,
         "commission": 352.8,
-        "reference": "…"           // string | null
+        "reference": "…",              // string | null
+        "suggestedCommission": 352.8,  // number | null — The suggested commission.
+        "commissionTyped": true        // True when Commission is what staff typed.
       }
     ],
     "total": 352.8
@@ -162,8 +164,9 @@ The body every `POST` returns alongside `201 Created`: the id of the row just wr
   "lines": [
     {
       "paymentMethodId": 1,
-      "amount": 352.8,   // What the payer puts toward their debt on this line, before any commission.
-      "reference": "…"   // string | null — Operation number from the bank or POS.
+      "amount": 352.8,      // What the payer puts toward their debt on this line, before any commission.
+      "reference": "…",     // string | null — Operation number from the bank or POS.
+      "commission": 352.8   // number | null — Card commission in soles, charged on top of Amount.
     }
   ]
 }
@@ -193,10 +196,12 @@ Paying a supplier. Money out, settling payables that already exist.
     "tenders": [
       {
         "paymentMethodId": 1,
-        "paymentMethodName": "…",  // string | null
+        "paymentMethodName": "…",      // string | null
         "amount": 352.8,
         "commission": 352.8,
-        "reference": "…"           // string | null
+        "reference": "…",              // string | null
+        "suggestedCommission": 352.8,  // number | null — The suggested commission.
+        "commissionTyped": true        // True when Commission is what staff typed.
       }
     ],
     "total": 352.8
@@ -363,8 +368,9 @@ What the school still owes one supplier, obligation by obligation.
   "lines": [
     {
       "paymentMethodId": 1,
-      "amount": 352.8,   // What the payer puts toward their debt on this line, before any commission.
-      "reference": "…"   // string | null — Operation number from the bank or POS.
+      "amount": 352.8,      // What the payer puts toward their debt on this line, before any commission.
+      "reference": "…",     // string | null — Operation number from the bank or POS.
+      "commission": 352.8   // number | null — Card commission in soles, charged on top of Amount.
     }
   ]
 }

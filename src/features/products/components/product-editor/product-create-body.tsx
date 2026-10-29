@@ -31,7 +31,7 @@ import type {
 } from "@/features/products/components/price-grid/price-grid-types";
 import { useCatalogWorkspace } from "@/features/products/components/catalog-workspace/workspace-context";
 import ProductHeader from "./product-header";
-import UnsavedChangesGuard from "./unsaved-changes-guard";
+import UnsavedChangesGuard from "@/shared/components/unsaved-changes-guard";
 import { unitWord } from "./version-rows";
 import { PANE_CLASSES } from "@/features/products/components/catalog-workspace/pane-sx";
 

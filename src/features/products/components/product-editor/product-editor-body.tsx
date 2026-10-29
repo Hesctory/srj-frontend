@@ -11,7 +11,7 @@ import type { PriceDrafts } from "@/features/products/utils/price-grid";
 import { useCatalogWorkspace } from "@/features/products/components/catalog-workspace/workspace-context";
 import ProductHeader from "./product-header";
 import ProductPrices from "./product-prices";
-import UnsavedChangesGuard from "./unsaved-changes-guard";
+import UnsavedChangesGuard from "@/shared/components/unsaved-changes-guard";
 import { PANE_CLASSES } from "@/features/products/components/catalog-workspace/pane-sx";
 
 export interface EditorToolbarState {

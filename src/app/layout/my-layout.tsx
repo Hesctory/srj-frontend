@@ -2,7 +2,6 @@ import { Suspense, type ReactNode } from "react";
 import {
   AppBar,
   Sidebar,
-  Notification,
   Loading,
   CheckForApplicationUpdate,
   TitlePortal,
@@ -119,7 +118,6 @@ export const MyLayout = ({ children }: { children: ReactNode }) => (
       </Box>
     </Box>
 
-    <Notification />
     <CheckForApplicationUpdate />
   </Box>
 );

@@ -22,6 +22,11 @@ import type {
   UpdateProductLine,
   UpdateProductVersion,
 } from "@/types/product";
+import type {
+  ConfirmPaymentResponse,
+  PaymentPreviewRequest,
+  PaymentPreviewResponse,
+} from "@/types/payment";
 
 // VITE_API_URL (in .env.local) points the app at another backend, e.g. an
 // agent's own instance running next to yours on a different port.
@@ -227,9 +232,28 @@ const catalog = {
   },
 };
 
+// --- Enrollment payments ----------------------------------------------------
+// Two RPCs React Admin's verbs don't model: the preview writes nothing and
+// returns a single-use token; the confirmation redeems it and moves the money.
+// The deprecated `POST /api/payment-preview` and `POST /api/payments` are never
+// called.
+const enrollmentPayments = {
+  previewEnrollmentPayment: (body: PaymentPreviewRequest) =>
+    sendJson<PaymentPreviewResponse>(
+      "POST",
+      "/enrollment-payments/preview",
+      body,
+    ),
+  confirmEnrollmentPayment: (previewToken: string) =>
+    sendJson<ConfirmPaymentResponse>("POST", "/enrollment-payments", {
+      previewToken,
+    }),
+};
+
 export type AppDataProvider = DataProvider & {
   exportReport: typeof exportReport;
-} & typeof catalog;
+} & typeof catalog &
+  typeof enrollmentPayments;
 
 // --- App extensions decorator -----------------------------------------------
 // Wraps a base DataProvider with the app's cross-cutting behaviour: report
@@ -239,6 +263,7 @@ const withAppExtensions = (base: DataProvider): AppDataProvider => ({
   ...base,
   exportReport,
   ...catalog,
+  ...enrollmentPayments,
   update: async (resource, params) => {
     if (resource === "products") {
       const { json } = await httpClient(

@@ -189,7 +189,7 @@ const customSpanishMessages = {
     grades: { name: "Grado |||| Grados" },
     "grade-offerings": { name: "Oferta de grado |||| Oferta de grados" },
     classrooms: { name: "Aula |||| Aulas" },
-    costs: { name: "Tarifa |||| Tarifas" },
+    "school-fees": { name: "Tarifa |||| Tarifas" },
     institutions: { name: "Institución |||| Instituciones" },
     "voucher-series": { name: "Serie |||| Series" },
     "accounting-plan": { name: "Cuenta contable |||| Plan contable" },

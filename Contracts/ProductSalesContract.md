@@ -75,10 +75,12 @@ Selling catalogue products over the counter, and the returns and exchanges again
     "tenders": [
       {
         "paymentMethodId": 1,
-        "paymentMethodName": "…",  // string | null
+        "paymentMethodName": "…",      // string | null
         "amount": 352.8,
         "commission": 352.8,
-        "reference": "…"           // string | null
+        "reference": "…",              // string | null
+        "suggestedCommission": 352.8,  // number | null — The suggested commission.
+        "commissionTyped": true        // True when Commission is what staff typed.
       }
     ],
     "warnings": ["…"]            // array | null
@@ -155,10 +157,12 @@ Selling catalogue products over the counter, and the returns and exchanges again
     "tenders": [
       {
         "paymentMethodId": 1,
-        "paymentMethodName": "…",  // string | null
+        "paymentMethodName": "…",      // string | null
         "amount": 352.8,
         "commission": 352.8,
-        "reference": "…"           // string | null
+        "reference": "…",              // string | null
+        "suggestedCommission": 352.8,  // number | null — The suggested commission.
+        "commissionTyped": true        // True when Commission is what staff typed.
       }
     ],
     "subtotal": 352.8,
@@ -192,8 +196,9 @@ Selling catalogue products over the counter, and the returns and exchanges again
   "tenders": [
     {
       "paymentMethodId": 1,
-      "amount": 352.8,   // What the payer puts toward their debt on this line, before any commission.
-      "reference": "…"   // string | null — Operation number from the bank or POS.
+      "amount": 352.8,      // What the payer puts toward their debt on this line, before any commission.
+      "reference": "…",     // string | null — Operation number from the bank or POS.
+      "commission": 352.8   // number | null — Card commission in soles, charged on top of Amount.
     }
   ],
   "returnedAt": "2026-08-19",  // string | null — YYYY-MM-DD
@@ -245,10 +250,12 @@ A garment coming back, on its own or swapped for another.
     "tenders": [
       {
         "paymentMethodId": 1,
-        "paymentMethodName": "…",  // string | null
+        "paymentMethodName": "…",      // string | null
         "amount": 352.8,
         "commission": 352.8,
-        "reference": "…"           // string | null
+        "reference": "…",              // string | null
+        "suggestedCommission": 352.8,  // number | null — The suggested commission.
+        "commissionTyped": true        // True when Commission is what staff typed.
       }
     ],
     "warnings": ["…"]            // array | null
@@ -307,8 +314,9 @@ A garment coming back, on its own or swapped for another.
   "tenders": [
     {
       "paymentMethodId": 1,
-      "amount": 352.8,   // What the payer puts toward their debt on this line, before any commission.
-      "reference": "…"   // string | null — Operation number from the bank or POS.
+      "amount": 352.8,      // What the payer puts toward their debt on this line, before any commission.
+      "reference": "…",     // string | null — Operation number from the bank or POS.
+      "commission": 352.8   // number | null — Card commission in soles, charged on top of Amount.
     }
   ],
   "soldAt": "2026-08-19",  // string | null — YYYY-MM-DD
@@ -353,10 +361,12 @@ What the clerk is proposing to sell. Nothing is written for a preview.
     "tenders": [
       {
         "paymentMethodId": 1,
-        "paymentMethodName": "…",  // string | null
+        "paymentMethodName": "…",      // string | null
         "amount": 352.8,
         "commission": 352.8,
-        "reference": "…"           // string | null
+        "reference": "…",              // string | null
+        "suggestedCommission": 352.8,  // number | null — The suggested commission.
+        "commissionTyped": true        // True when Commission is what staff typed.
       }
     ],
     "subtotal": 352.8,
@@ -698,8 +708,9 @@ A uniform set as the counter sells it: the parts, and for each part the versions
   "tenders": [
     {
       "paymentMethodId": 1,
-      "amount": 352.8,   // What the payer puts toward their debt on this line, before any commission.
-      "reference": "…"   // string | null — Operation number from the bank or POS.
+      "amount": 352.8,      // What the payer puts toward their debt on this line, before any commission.
+      "reference": "…",     // string | null — Operation number from the bank or POS.
+      "commission": 352.8   // number | null — Card commission in soles, charged on top of Amount.
     }
   ],
   "returnedAt": "2026-08-19",  // string | null — YYYY-MM-DD
@@ -756,8 +767,9 @@ Price the basket and check the shelf. Writes nothing.
   "tenders": [
     {
       "paymentMethodId": 1,
-      "amount": 352.8,   // What the payer puts toward their debt on this line, before any commission.
-      "reference": "…"   // string | null — Operation number from the bank or POS.
+      "amount": 352.8,      // What the payer puts toward their debt on this line, before any commission.
+      "reference": "…",     // string | null — Operation number from the bank or POS.
+      "commission": 352.8   // number | null — Card commission in soles, charged on top of Amount.
     }
   ],
   "soldAt": "2026-08-19",  // string | null — YYYY-MM-DD

@@ -13,10 +13,11 @@ import {
   Tooltip,
   Typography,
 } from "@mui/material";
-import type { PaymentMethod } from "@/types/payment";
+import type { PaymentMethod, PaymentPlan } from "@/types/payment";
 import type { PaymentTarget } from "@/features/cashier/tuition/hooks/use-payment-drawer";
 import type { PaymentDraftController } from "@/features/cashier/tuition/hooks/use-payment-draft";
 import { formatMoney } from "@/features/cashier/tuition/utils/charges";
+import { parseAmount } from "@/features/cashier/tuition/utils/payments";
 
 interface TenderLinesEditorProps {
   draft: PaymentDraftController;
@@ -25,7 +26,29 @@ interface TenderLinesEditorProps {
   loadingMethods: boolean;
   /** Validation stays quiet until the cashier has tried to submit once. */
   showErrors: boolean;
+  /** The server's 422s by line position: `{ 0: { commission: "…" } }`. */
+  serverErrors: Record<number, Record<string, string>>;
+  /** The last plan previewed, kept after "Volver a editar" for its suggestions. */
+  lastPlan: PaymentPlan | null;
 }
+
+/**
+ * The suggestion the last preview made for this line — only while the line
+ * still has the method and amount it was computed for, so a stale figure is
+ * never shown beside a changed amount.
+ */
+const suggestionFor = (
+  plan: PaymentPlan | null,
+  index: number,
+  paymentMethodId: number | "",
+  amount: string,
+) => {
+  const tender = plan?.tenders[index];
+  if (!tender || tender.suggestedCommission === null) return null;
+  if (tender.paymentMethodId !== paymentMethodId) return null;
+  if (tender.amount !== parseAmount(amount)) return null;
+  return tender.suggestedCommission;
+};
 
 const SectionHeading = ({ children }: { children: string }) => (
   <Typography
@@ -45,10 +68,11 @@ const SectionHeading = ({ children }: { children: string }) => (
  * contract models them as `lines[]`, so the form is a list from the start
  * rather than a single amount that grows a "split" mode later.
  *
- * Amounts are what goes **toward the debt**. Card commissions are added on top
- * by the server and only become visible in the next step — the caption under
- * the total says so, because a cashier who expects the typed figure to be the
- * charged figure will otherwise read the difference as a bug.
+ * Amounts are what goes **toward the debt**. A card line also takes the
+ * commission printed on the terminal's slip, charged on top. Left blank, the
+ * server applies its suggestion (rate × amount); 0 means the school absorbs
+ * it. The suggestion is only known after a preview, so it shows beside the
+ * field once the cashier comes back from the review step.
  */
 const TenderLinesEditor = ({
   draft,
@@ -56,6 +80,8 @@ const TenderLinesEditor = ({
   methods,
   loadingMethods,
   showErrors,
+  serverErrors,
+  lastPlan,
 }: TenderLinesEditorProps) => (
   <Stack spacing={3}>
     {/* What is being settled — one row, concept against figure. It was three
@@ -135,7 +161,19 @@ const TenderLinesEditor = ({
       <Stack spacing={2} divider={<Divider flexItem />}>
         {draft.tenders.map((tender, index) => {
           const issues = draft.issues[tender.key] ?? {};
+          const fromServer = serverErrors[index] ?? {};
           const position = index + 1;
+          const isCard = draft.takesCommission(tender);
+          const suggestion = suggestionFor(
+            lastPlan,
+            index,
+            tender.paymentMethodId,
+            tender.amount,
+          );
+          const commissionError =
+            (tender.commission.trim() !== "" || showErrors
+              ? issues.commission
+              : undefined) ?? fromServer.commission;
           const methodError = showErrors ? issues.paymentMethodId : undefined;
           // An amount that is present but unparseable is wrong now, not later.
           const amountError =
@@ -232,9 +270,45 @@ const TenderLinesEditor = ({
                 inputProps={{
                   "aria-label": `Número de operación del medio de pago ${position}`,
                 }}
-                sx={{ gridColumn: "1 / -1" }}
+                sx={{
+                  gridColumn: isCard ? { xs: "1 / -1", sm: "1 / 2" } : "1 / -1",
+                }}
                 fullWidth
               />
+
+              {isCard && (
+                <TextField
+                  label="Comisión"
+                  value={tender.commission}
+                  onChange={(event) =>
+                    draft.updateTender(tender.key, {
+                      commission: event.target.value,
+                    })
+                  }
+                  type="number"
+                  placeholder="Sugerida"
+                  inputProps={{
+                    min: 0,
+                    step: "0.01",
+                    inputMode: "decimal",
+                    "aria-label": `Comisión del medio de pago ${position}`,
+                  }}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">S/</InputAdornment>
+                    ),
+                  }}
+                  error={Boolean(commissionError)}
+                  helperText={
+                    commissionError ??
+                    (suggestion !== null
+                      ? `Sugerida: ${formatMoney(suggestion)}`
+                      : "Vacía: se usa la sugerida")
+                  }
+                  sx={{ gridColumn: { xs: "1 / -1", sm: "2 / 3" } }}
+                  fullWidth
+                />
+              )}
             </Box>
           );
         })}
@@ -283,7 +357,7 @@ const TenderLinesEditor = ({
           ? `${draft.totalIssue} Máximo: ${formatMoney(target.outstanding)}.`
           : draft.total > 0
             ? `Quedaría pendiente ${formatMoney(draft.remaining)}`
-            : "La comisión de tarjeta se agrega en el siguiente paso."}
+            : "La comisión de tarjeta se cobra encima del monto."}
       </Typography>
       {draft.remaining > 0 && (
         <Button size="small" onClick={draft.fillRemaining}>

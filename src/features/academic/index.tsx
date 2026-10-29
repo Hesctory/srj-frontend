@@ -4,7 +4,7 @@ import { LevelsResource } from "./resources/levels";
 import { GradesResource } from "./resources/grades";
 import { GradeOfferingsResource } from "./resources/grade-offerings";
 import { ClassroomsResource } from "./resources/classrooms";
-import { CostsResource } from "./resources/costs";
+import { SchoolFeesResource } from "./resources/school-fees";
 
 export const resources = [
   SchoolYearsResource,
@@ -12,6 +12,6 @@ export const resources = [
   GradesResource,
   GradeOfferingsResource,
   ClassroomsResource,
-  CostsResource,
+  SchoolFeesResource,
 ];
 export const routes: ReactElement[] = [];

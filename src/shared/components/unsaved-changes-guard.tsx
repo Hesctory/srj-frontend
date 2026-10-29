@@ -22,14 +22,14 @@ const RouteBlocker = ({ when }: { when: boolean }) => {
 };
 
 /**
- * Asks before leaving the editor with unsaved changes.
+ * Asks before leaving a form with unsaved changes.
  *
- * React Admin's `warnWhenUnsavedChanges` only sees the form's own fields —
- * the edit screen's prices live outside the form (see `usePriceDrafts`) — and
- * it logs an error instead of working when the app has no data router, which
- * is the case while `App.tsx` uses a plain `BrowserRouter`. Closing or
- * reloading the tab is guarded either way; navigation inside the app only
- * once the router supports blocking.
+ * Use it instead of React Admin's `warnWhenUnsavedChanges`, which logs an
+ * error and does nothing while `App.tsx` uses a plain `BrowserRouter` (no data
+ * router), and which only sees the form's own fields (the product editor's
+ * prices live outside it). Closing or reloading the tab is guarded either
+ * way; navigation inside the app only once the router supports blocking —
+ * until then pair it with `CRUDToolBar`'s `onBeforeLeave` for "Volver".
  */
 export const UnsavedChangesGuard = ({ when }: { when: boolean }) => {
   const canBlock = useCanBlock();

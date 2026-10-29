@@ -111,7 +111,7 @@ export const menu: MenuEntry[] = [
         icon: <ViewModuleIcon />,
       },
       { name: "Aulas", path: "/classrooms", icon: <MeetingRoomIcon /> },
-      { name: "Tarifas", path: "/costs", icon: <AttachMoneyIcon /> },
+      { name: "Tarifas", path: "/school-fees", icon: <AttachMoneyIcon /> },
     ],
   },
   {

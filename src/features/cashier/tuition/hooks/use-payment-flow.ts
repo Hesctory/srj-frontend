@@ -1,17 +1,18 @@
 import { useCallback, useState } from "react";
-import { useNotify, useRefresh } from "react-admin";
+import { useMutation } from "@tanstack/react-query";
+import { useDataProvider, useNotify, useRefresh } from "react-admin";
+import type { AppDataProvider } from "@/app/data-provider";
 import type {
   ConfirmPaymentResponse,
   IsoDate,
   PaymentLine,
+  PaymentPlan,
   PaymentPreviewResponse,
 } from "@/types/payment";
 import {
-  confirmPayment,
-  previewPayment,
   toPaymentError,
   type PaymentApiError,
-} from "@/features/cashier/tuition/api/payments";
+} from "@/features/cashier/tuition/utils/payment-error";
 
 /**
  * The two-request payment flow, as a three-step machine.
@@ -34,45 +35,41 @@ export interface PaymentScope {
 }
 
 const usePaymentFlow = (scope: PaymentScope) => {
+  const dataProvider = useDataProvider<AppDataProvider>();
   const notify = useNotify();
   const refresh = useRefresh();
 
   const [preview, setPreview] = useState<PaymentPreviewResponse | null>(null);
+  // Outlives "Volver a editar", so the form can show each card line's
+  // suggested commission while the cashier types the one on the slip.
+  const [lastPlan, setLastPlan] = useState<PaymentPlan | null>(null);
   const [receipt, setReceipt] = useState<ConfirmPaymentResponse | null>(null);
   const [error, setError] = useState<PaymentApiError | null>(null);
-  const [isPreviewing, setIsPreviewing] = useState(false);
-  const [isConfirming, setIsConfirming] = useState(false);
 
   const step: PaymentStep = receipt ? "done" : preview ? "review" : "compose";
 
-  const runPreview = useCallback(
+  const previewMutation = useMutation({
     // `date` omitted falls back to the server's today in Peru.
-    async (input: { date?: IsoDate; lines: PaymentLine[] }) => {
-      setIsPreviewing(true);
-      setError(null);
-      try {
-        setPreview(await previewPayment({ ...scope, ...input }));
-      } catch (cause) {
-        setError(toPaymentError(cause));
-      } finally {
-        setIsPreviewing(false);
-      }
+    mutationFn: (input: { date?: IsoDate; lines: PaymentLine[] }) =>
+      dataProvider.previewEnrollmentPayment({ ...scope, ...input }),
+    onMutate: () => setError(null),
+    onSuccess: (response) => {
+      setPreview(response);
+      setLastPlan(response.plan);
     },
-    // `scope` is a fresh object each render; its contents are what matter.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [scope.enrollmentId, scope.studentId, String(scope.obligationIds)],
-  );
+    onError: (cause) => setError(toPaymentError(cause)),
+  });
 
-  const confirm = useCallback(async () => {
-    if (!preview) return;
-    setIsConfirming(true);
-    setError(null);
-    try {
-      const response = await confirmPayment(preview.previewToken);
+  const confirmMutation = useMutation({
+    mutationFn: (previewToken: string) =>
+      dataProvider.confirmEnrollmentPayment(previewToken),
+    onMutate: () => setError(null),
+    onSuccess: (response) => {
       setReceipt(response);
       notify("Pago registrado correctamente", { type: "success" });
       refresh();
-    } catch (cause) {
+    },
+    onError: (cause) => {
       const failure = toPaymentError(cause);
       setError(failure);
       // 409 (stale plan) and 404 (dead or spent token) both mean the plan on
@@ -81,10 +78,15 @@ const usePaymentFlow = (scope: PaymentScope) => {
         setPreview(null);
         refresh();
       }
-    } finally {
-      setIsConfirming(false);
-    }
-  }, [preview, notify, refresh]);
+    },
+  });
+
+  const { mutate: runPreview } = previewMutation;
+  const { mutate: confirmToken } = confirmMutation;
+
+  const confirm = useCallback(() => {
+    if (preview) confirmToken(preview.previewToken);
+  }, [preview, confirmToken]);
 
   /** Back to the form, keeping the draft. The token is simply abandoned. */
   const editDraft = useCallback(() => {
@@ -94,6 +96,7 @@ const usePaymentFlow = (scope: PaymentScope) => {
 
   const reset = useCallback(() => {
     setPreview(null);
+    setLastPlan(null);
     setReceipt(null);
     setError(null);
   }, []);
@@ -103,10 +106,11 @@ const usePaymentFlow = (scope: PaymentScope) => {
   return {
     step,
     preview,
+    lastPlan,
     receipt,
     error,
-    isPreviewing,
-    isConfirming,
+    isPreviewing: previewMutation.isPending,
+    isConfirming: confirmMutation.isPending,
     runPreview,
     confirm,
     editDraft,

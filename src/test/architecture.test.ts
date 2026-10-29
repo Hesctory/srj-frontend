@@ -57,7 +57,6 @@ const resolveImport = (fromFile: string, specifier: string) => {
 
 const LEGACY_API_FOLDERS = [
   // TODO: move these endpoints into src/app/data-provider.ts.
-  "src/features/cashier/tuition/api",
   "src/features/billing/api",
 ];
 
