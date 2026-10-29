@@ -1,6 +1,6 @@
 import { Edit, SimpleForm, useRecordContext } from "react-admin";
 import type { SchoolFee } from "@/types/school-fee";
-import SchoolFeeToolbar from "./school-fee-toolbar";
+import GuardedFormToolbar from "@/features/academic/components/guarded-form-toolbar";
 import { FORM_WIDTH, SchoolFeeInputs } from "./school-fee-inputs";
 
 /** "Tarifa Inicial · mañana · Normal 2026" says which row, unlike "Tarifa #7". */
@@ -25,7 +25,7 @@ export const SchoolFeesEdit = () => (
     sx={FORM_WIDTH}
     title={<SchoolFeeTitle />}
   >
-    <SimpleForm toolbar={<SchoolFeeToolbar />}>
+    <SimpleForm toolbar={<GuardedFormToolbar />}>
       <SchoolFeeInputs />
     </SimpleForm>
   </Edit>

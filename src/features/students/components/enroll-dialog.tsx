@@ -13,6 +13,11 @@ import {
   useRedirect,
   Identifier,
 } from "react-admin";
+import { useFormState } from "react-hook-form";
+import {
+  fieldErrors,
+  serverErrorMessage,
+} from "@/features/students/hooks/use-enrollment-preview";
 import EnrollmentFormInputs from "./enrollment-form-inputs";
 
 interface EnrollDialogProps {
@@ -21,6 +26,21 @@ interface EnrollDialogProps {
   studentData: Record<string, unknown> | null;
   studentId: Identifier | null;
 }
+
+/** Disabled while the enrollment is being written: one click, one enrollment. */
+const EnrollSubmitButton = () => {
+  const { isSubmitting } = useFormState();
+  return (
+    <Button
+      variant="contained"
+      color="success"
+      type="submit"
+      disabled={isSubmitting}
+    >
+      {isSubmitting ? "Matriculando…" : "Matricular"}
+    </Button>
+  );
+};
 
 export const EnrollDialog = ({
   open,
@@ -32,6 +52,8 @@ export const EnrollDialog = ({
   const notify = useNotify();
   const redirect = useRedirect();
 
+  // Resolving with the 422's field errors puts each message on its field;
+  // anything else (409 already enrolled, 404 no fees) is a notification.
   const handleSubmit = async (enrollmentData: Record<string, unknown>) => {
     try {
       if (studentId) {
@@ -44,11 +66,12 @@ export const EnrollDialog = ({
       notify("Estudiante matriculado exitosamente", { type: "success" });
       redirect("list", "students");
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Error desconocido";
-      notify(`Error al matricular el estudiante: ${message}`, {
-        type: "error",
-      });
+      const errors = fieldErrors(error);
+      if (errors) return errors;
+      notify(
+        serverErrorMessage(error, "No se pudo matricular al estudiante."),
+        { type: "error" },
+      );
     }
   };
 
@@ -58,14 +81,14 @@ export const EnrollDialog = ({
         <DialogTitle>Matricular Estudiante</DialogTitle>
         <DialogContent>
           <Box mt={1}>
-            <EnrollmentFormInputs />
+            <EnrollmentFormInputs
+              studentId={studentId === null ? null : Number(studentId)}
+            />
           </Box>
         </DialogContent>
         <DialogActions>
           <Button onClick={onClose}>Cancelar</Button>
-          <Button variant="contained" color="success" type="submit">
-            Matricular
-          </Button>
+          <EnrollSubmitButton />
         </DialogActions>
       </Form>
     </Dialog>

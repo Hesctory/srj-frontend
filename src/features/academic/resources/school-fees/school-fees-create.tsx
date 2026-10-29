@@ -1,5 +1,5 @@
 import { Create, SimpleForm, useStore } from "react-admin";
-import SchoolFeeToolbar from "./school-fee-toolbar";
+import GuardedFormToolbar from "@/features/academic/components/guarded-form-toolbar";
 import { FORM_WIDTH, SchoolFeeInputs } from "./school-fee-inputs";
 
 /** Opens on the year the list was showing — the one staff were pricing. */
@@ -17,7 +17,7 @@ export const SchoolFeesCreate = () => {
   return (
     <Create redirect="list" mutationMode="pessimistic" sx={FORM_WIDTH}>
       <SimpleForm
-        toolbar={<SchoolFeeToolbar />}
+        toolbar={<GuardedFormToolbar />}
         defaultValues={{ schoolYearId }}
       >
         <SchoolFeeInputs />

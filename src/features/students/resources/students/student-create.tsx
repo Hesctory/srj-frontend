@@ -35,6 +35,7 @@ import LocationFormSelector from "@/shared/components/location-form-selector";
 import SecondLanguagesFormSelector from "@/features/students/components/second-languages-form-selector";
 import MultipleFamiliarsForm from "@/features/students/components/multiple-familiars-form";
 import EnrollmentFormInputs from "@/features/students/components/enrollment-form-inputs";
+import { serverErrorMessage } from "@/features/students/hooks/use-enrollment-preview";
 
 const ConfirmCreateStudentButton = () => {
   const [open, setOpen] = useState(false);
@@ -55,9 +56,11 @@ const ConfirmCreateStudentButton = () => {
       notify("Estudiante creado exitosamente", { type: "success" });
       redirect("list", "students");
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Error desconocido";
-      notify(`Error al crear estudiante: ${message}`, { type: "error" });
+      // A 422 names its fields ("Los días de gracia deben estar entre 0 y 2.");
+      // the message alone says what to fix, so it is shown as it comes.
+      notify(serverErrorMessage(error, "No se pudo crear el estudiante."), {
+        type: "error",
+      });
     } finally {
       setOpen(false);
     }

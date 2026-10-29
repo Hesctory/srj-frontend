@@ -11,18 +11,18 @@ import { FormSection, fullRowField } from "@/shared/components/form-grid";
 import { SCHOOL_FEE_AMOUNT_MAX } from "@/types/school-fee";
 import { formatMoney } from "@/utils/money";
 
-const AMOUNT_MESSAGE =
-  "El monto debe estar entre 0 y 999.99, con hasta dos decimales.";
-
-/** The backend's bounds, checked here first so the form answers at once. */
-const amountInRange = (value: unknown) => {
+/**
+ * The backend's bounds for a soles amount (0 to 999.99, two decimals),
+ * checked here first so the form answers at once.
+ */
+export const amountInRange = (message: string) => (value: unknown) => {
   if (value === null || value === undefined || value === "") return undefined;
   const amount = Number(value);
   const cents = Math.round(amount * 100);
   return amount < 0 ||
     amount > SCHOOL_FEE_AMOUNT_MAX ||
     Math.abs(cents - amount * 100) > 1e-6
-    ? AMOUNT_MESSAGE
+    ? message
     : undefined;
 };
 
@@ -45,7 +45,12 @@ const enrollmentWithinTuition = (
     : undefined;
 };
 
-const amountValidators = [required(), amountInRange];
+const amountValidators = [
+  required(),
+  amountInRange(
+    "El monto debe estar entre 0 y 999.99, con hasta dos decimales.",
+  ),
+];
 
 /** Eight short fields: on a wide screen the form stays at a readable width. */
 export const FORM_WIDTH = { width: "100%", maxWidth: 960, mx: "auto" };

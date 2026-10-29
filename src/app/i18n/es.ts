@@ -190,6 +190,9 @@ const customSpanishMessages = {
     "grade-offerings": { name: "Oferta de grado |||| Oferta de grados" },
     classrooms: { name: "Aula |||| Aulas" },
     "school-fees": { name: "Tarifa |||| Tarifas" },
+    "school-fee-concepts": {
+      name: "Concepto de cobro |||| Conceptos de cobro",
+    },
     institutions: { name: "Institución |||| Instituciones" },
     "voucher-series": { name: "Serie |||| Series" },
     "accounting-plan": { name: "Cuenta contable |||| Plan contable" },
