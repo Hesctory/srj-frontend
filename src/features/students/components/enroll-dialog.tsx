@@ -58,7 +58,7 @@ export const EnrollDialog = ({
   // A 422's messages go on the fields the form shows; the rest (409 already
   // enrolled, 404 no fees, a key with no visible input) are a notification.
   const handleSubmit = async (enrollmentData: Record<string, unknown>) => {
-    const { go, unanswered } = await confirmation.ask(
+    const { go, unanswered, noQuestion } = await confirmation.ask(
       previewBodyOf(enrollmentData, enrolledId, studentData?.familiars),
       typeof enrollmentData.billEnrollmentMonth === "boolean",
     );
@@ -67,7 +67,7 @@ export const EnrollDialog = ({
 
     setSaving(true);
     try {
-      const enrollment = withBillDefault(enrollmentData);
+      const enrollment = withBillDefault(enrollmentData, noQuestion);
       if (studentId) {
         const payload = { studentId: studentId, ...enrollment };
         await dataProvider.create("enrollments", { data: payload });
@@ -75,7 +75,10 @@ export const EnrollDialog = ({
         const payload = { ...studentData, enrollment };
         await dataProvider.create("students", { data: payload });
       }
-      notify("Estudiante matriculado exitosamente", { type: "success" });
+      notify("Estudiante matriculado exitosamente", {
+        type: "success",
+        messageArgs: { _: "Estudiante matriculado exitosamente" },
+      });
       redirect("list", "students");
     } catch (error) {
       const errors = fieldErrors(error);
@@ -87,11 +90,10 @@ export const EnrollDialog = ({
           )
         : { onFields: {}, elsewhere: "" };
       if (!errors || elsewhere) {
-        notify(
+        const message =
           elsewhere ||
-            serverErrorMessage(error, "No se pudo matricular al estudiante."),
-          { type: "error" },
-        );
+          serverErrorMessage(error, "No se pudo matricular al estudiante.");
+        notify(message, { type: "error", messageArgs: { _: message } });
       }
       if (Object.keys(onFields).length > 0) return onFields;
     } finally {

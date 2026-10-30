@@ -39,6 +39,22 @@ export const familiarsProblem = (familiars: unknown): string | null => {
   return null;
 };
 
+/**
+ * The tab's own label: red after a refused attempt, because the list's error
+ * belongs to no input, so React Admin does not mark the tab by itself, and the
+ * problem may be out of sight on another tab.
+ */
+export const FamiliarsTabLabel = () => {
+  const familiars = useWatch({ name: "familiars" });
+  const { errors } = useFormState({ name: "familiars" });
+  const refused = !!errors.familiars?.root && !!familiarsProblem(familiars);
+  return (
+    <Box component="span" sx={refused ? { color: "error.main" } : undefined}>
+      Apoderados
+    </Box>
+  );
+};
+
 const RelationshipLabel = () => {
   const record = useRecordContext();
   return <>{record?.name ?? ""}</>;
@@ -113,7 +129,9 @@ const MultipleFamiliarsForm = () => {
   const notify = useNotify();
   const { submitCount } = useFormState();
   useEffect(() => {
-    if (submitCount > 0 && problem) notify(problem, { type: "error" });
+    if (submitCount > 0 && problem) {
+      notify(problem, { type: "error", messageArgs: { _: problem } });
+    }
     // Once per attempt, not on every change to the familiars afterwards.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [submitCount]);

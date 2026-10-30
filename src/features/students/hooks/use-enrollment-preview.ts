@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { keepPreviousData, useMutation, useQuery } from "@tanstack/react-query";
 import { useDataProvider } from "react-admin";
 import { useWatch } from "react-hook-form";
@@ -26,13 +26,17 @@ export const UNANSWERED_MONTH_MESSAGE =
 /**
  * The enrollment as the create sends it: with no first-month question to
  * answer, `billEnrollmentMonth` is the API's default `true`, exactly what the
- * preview sent, instead of being left out.
+ * preview sent, instead of being left out. `noQuestion` is what the check at
+ * the click said: an answer given for another school year does not count.
  */
 export const withBillDefault = <T extends Record<string, unknown>>(
   enrollment: T,
+  noQuestion = false,
 ) => ({
   ...enrollment,
-  billEnrollmentMonth: enrollment.billEnrollmentMonth ?? true,
+  billEnrollmentMonth: noQuestion
+    ? true
+    : (enrollment.billEnrollmentMonth ?? true),
 });
 
 const toId = (value: unknown) =>
@@ -91,6 +95,21 @@ export const previewBodyOf = (
   };
 };
 
+/** Typing a document should not ask the API about every partial number. */
+const DOCUMENTS_DEBOUNCE_MS = 500;
+
+const useDebounced = <T>(value: T, key: string): T => {
+  const [settled, setSettled] = useState(value);
+  useEffect(() => {
+    const timer = setTimeout(() => setSettled(value), DOCUMENTS_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+    // `key` stands for the value: a new array with the same documents waits
+    // for nothing.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+  return settled;
+};
+
 /**
  * The charges the enrollment would raise today, asked again whenever a choice
  * changes. The API also says whether the first-month question applies, so it
@@ -114,7 +133,9 @@ export const useEnrollmentPreview = (
         `${base}billEnrollmentMonth`,
       ],
     });
-  const familiars = useWatch({ name: "familiars" });
+  const watched = useWatch({ name: "familiars" });
+  const documents = familiarDocumentsOf(watched);
+  const familiars = useDebounced(documents, JSON.stringify(documents));
 
   const body = previewBodyOf(
     {
@@ -172,6 +193,9 @@ export const useEnrollmentPreview = (
 export const useEnrollmentConfirmation = () => {
   const dataProvider = useDataProvider<AppDataProvider>();
   const [open, setOpen] = useState(false);
+  // The ask on screen, so a cancelled or replaced one can never be confirmed
+  // or close the dialog, however late its check comes back.
+  const latest = useRef(0);
   const decide = useRef<(go: boolean) => void>(() => undefined);
 
   const check = useMutation({
@@ -180,26 +204,36 @@ export const useEnrollmentConfirmation = () => {
   });
 
   /**
-   * Opens the dialog; the promise settles on Matricular or Cancelar. If the
-   * first-month question was still loading when they clicked, the answer is
-   * `unanswered` instead: the form shows the question now, so it comes first.
+   * Opens the dialog; the promise settles on Matricular or Cancelar, which can
+   * come while the check is still running. If the first-month question was
+   * still loading when they clicked, the answer is `unanswered` instead: the
+   * form shows the question now, so it comes first. `noQuestion` means the API
+   * says the question does not apply, whatever the form still holds.
    */
   const ask = async (
     body: PreviewEnrollment | null,
     hasMonthAnswer: boolean,
-  ): Promise<{ go: boolean; unanswered: boolean }> => {
+  ) => {
+    const id = ++latest.current;
+    decide.current(false);
+    const decision = new Promise<boolean>((resolve) => {
+      decide.current = resolve;
+    });
     setOpen(true);
+
     const preview = body
       ? await check.mutateAsync(body).catch(() => null)
       : null;
-    if (preview && preview.enrollmentMonthChoice !== null && !hasMonthAnswer) {
-      setOpen(false);
-      return { go: false, unanswered: true };
+    const noQuestion = preview?.enrollmentMonthChoice === null;
+
+    if (id !== latest.current) {
+      return { go: false, unanswered: false, noQuestion };
     }
-    const go = await new Promise<boolean>((resolve) => {
-      decide.current = resolve;
-    });
-    return { go, unanswered: false };
+    if (preview && !noQuestion && !hasMonthAnswer) {
+      setOpen(false);
+      return { go: false, unanswered: true, noQuestion };
+    }
+    return { go: await decision, unanswered: false, noQuestion };
   };
 
   const close = () => setOpen(false);
@@ -214,6 +248,7 @@ export const useEnrollmentConfirmation = () => {
       error: check.error,
       onConfirm: () => decide.current(true),
       onCancel: () => {
+        latest.current += 1;
         decide.current(false);
         setOpen(false);
       },

@@ -32,9 +32,9 @@ interface AmountCellProps {
   strong?: boolean;
   color?: string;
   /**
-   * Dropped until the columns fit. There the statement answers two questions —
-   * what is still owed and by when — and the gross/paid split stays available
-   * in the detail drawer rather than tripling the height of every card.
+   * Dropped on phones. There the statement answers two questions — what is
+   * still owed and by when — and the gross/paid split stays available in the
+   * detail drawer rather than tripling the height of every card.
    */
   mobileHidden?: boolean;
 }
@@ -46,7 +46,8 @@ interface AmountCellProps {
  * a wider status chip ("Pendiente" vs "Vencido") drags the whole right side out
  * of alignment.
  */
-const MONEY_COL = 104;
+// Fits "S/ 999.99", the largest single charge, and "31/12/2026".
+const MONEY_COL = 92;
 const ACTION_COL = 244;
 
 const AmountCell = ({
@@ -60,11 +61,11 @@ const AmountCell = ({
     sx={{
       minWidth: 0,
       textAlign: { xs: "left", lg: "right" },
-      // Narrow rows read it as one line ("Saldo  S/ 332.80"); lg stacks the
-      // label over the figure so the shared columns can stay narrow.
+      // Phones read it as one line ("Saldo  S/ 332.80"); from sm the label
+      // stacks over the figure so the columns can stay narrow.
       display: mobileHidden
-        ? { xs: "none", lg: "block" }
-        : { xs: "flex", lg: "block" },
+        ? { xs: "none", sm: "block" }
+        : { xs: "flex", sm: "block" },
       alignItems: "baseline",
       gap: 1,
     }}
@@ -110,21 +111,21 @@ const ChargeRow = ({ charge, onPay, onDetails }: ChargeRowProps) => {
     >
       <Box
         display="grid"
-        gap={{ xs: 1, lg: 2 }}
+        gap={{ xs: 1, lg: 1.5 }}
         alignItems="center"
         gridTemplateColumns={{
           // Phones stack outright: a payable row carries a status chip plus two
           // buttons, and sharing one line with them truncates the balance to
           // "S/ 3…" — the one figure the row exists to show.
           xs: "minmax(0, 1fr)",
+          // Concept beside the actions, the four figures on a line below. Half
+          // a 1920 screen lands here, with the sidebar open.
           sm: "minmax(0, 1fr) auto",
-          // Four columns and the actions need ~790px beside the concept, and
-          // the sidebar is open from md: below lg they squeeze the concept out.
           lg: `minmax(0, 1fr) repeat(4, ${MONEY_COL}px) ${ACTION_COL}px`,
         }}
       >
         {/* Concept — spans the full width until the money columns appear. */}
-        <Box sx={{ minWidth: 0, gridColumn: { xs: "1 / -1", lg: "auto" } }}>
+        <Box sx={{ minWidth: 0 }}>
           <Stack
             direction="row"
             spacing={1}
@@ -163,7 +164,7 @@ const ChargeRow = ({ charge, onPay, onDetails }: ChargeRowProps) => {
             <Typography
               variant="caption"
               color="text.secondary"
-              sx={{ display: { xs: "none", lg: "block" } }}
+              sx={{ display: { xs: "none", sm: "block" } }}
             >
               Descuento {formatMoney(charge.discount)} · Por concepto de:{" "}
               {charge.discountReason}
@@ -172,10 +173,20 @@ const ChargeRow = ({ charge, onPay, onDetails }: ChargeRowProps) => {
         </Box>
 
         {/* Figures — `display: contents` at lg lifts the cells into the row grid
-            so they land on the shared tracks; below lg they stack. A waived
-            charge raised no obligation, so it has no due date: the dash sits
-            beside its "Exonerado" chip. */}
-        <Box sx={{ display: { xs: "block", lg: "contents" }, minWidth: 0 }}>
+            so they land on the shared tracks; below that they share a row of
+            their own, and phones stack them. A waived charge raised no
+            obligation, so it has no due date: the dash sits beside its
+            "Exonerado" chip. */}
+        <Box
+          sx={{
+            display: { xs: "block", sm: "grid", lg: "contents" },
+            gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+            gap: 1,
+            gridRow: { sm: 2 },
+            gridColumn: { sm: "1 / -1" },
+            minWidth: 0,
+          }}
+        >
           <AmountCell label="Vence" value={formatIsoDate(charge.dueDate)} />
           <AmountCell
             label="Cargo"
@@ -204,6 +215,10 @@ const ChargeRow = ({ charge, onPay, onDetails }: ChargeRowProps) => {
           flexWrap="wrap"
           useFlexGap
           justifyContent={{ xs: "flex-start", lg: "flex-end" }}
+          sx={{
+            gridRow: { sm: 1, lg: "auto" },
+            gridColumn: { sm: 2, lg: "auto" },
+          }}
         >
           <Chip label={status.label} color={status.color} size="small" />
           {/* Details is offered on every row, waived ones included — "why isn't

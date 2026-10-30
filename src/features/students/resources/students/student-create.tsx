@@ -25,10 +25,12 @@ import {
 } from "@/shared/components/form-grid";
 import LocationFormSelector from "@/shared/components/location-form-selector";
 import SecondLanguagesFormSelector from "@/features/students/components/second-languages-form-selector";
-import MultipleFamiliarsForm from "@/features/students/components/multiple-familiars-form";
+import MultipleFamiliarsForm, {
+  FamiliarsTabLabel,
+  familiarsProblem,
+} from "@/features/students/components/multiple-familiars-form";
 import EnrollmentFormInputs from "@/features/students/components/enrollment-form-inputs";
 import EnrollmentConfirmDialog from "@/features/students/components/enrollment-confirm-dialog";
-import { familiarsProblem } from "@/features/students/components/multiple-familiars-form";
 import {
   UNANSWERED_MONTH_MESSAGE,
   previewBodyOf,
@@ -50,23 +52,25 @@ export const ConfirmCreateStudentButton = () => {
     const isValid = await trigger();
     if (!isValid) {
       // Fields on another tab are out of sight, so say what stops it.
-      notify(
-        familiarsProblem(getValues("familiars")) ?? "ra.message.invalid_form",
-        {
-          type: "error",
-        },
-      );
+      const problem = familiarsProblem(getValues("familiars"));
+      notify(problem ?? "ra.message.invalid_form", {
+        type: "error",
+        messageArgs: { _: problem ?? undefined },
+      });
       return;
     }
 
     const values = getValues();
     // No student yet: eligibility goes through the familiars typed so far.
-    const { go, unanswered } = await confirmation.ask(
+    const { go, unanswered, noQuestion } = await confirmation.ask(
       previewBodyOf(values.enrollment, null, values.familiars),
       typeof values.enrollment?.billEnrollmentMonth === "boolean",
     );
     if (unanswered) {
-      notify(UNANSWERED_MONTH_MESSAGE, { type: "error" });
+      notify(UNANSWERED_MONTH_MESSAGE, {
+        type: "error",
+        messageArgs: { _: UNANSWERED_MONTH_MESSAGE },
+      });
       return;
     }
     if (!go) return;
@@ -74,16 +78,24 @@ export const ConfirmCreateStudentButton = () => {
     setSaving(true);
     try {
       await dataProvider.create("students", {
-        data: { ...values, enrollment: withBillDefault(values.enrollment) },
+        data: {
+          ...values,
+          enrollment: withBillDefault(values.enrollment, noQuestion),
+        },
       });
-      notify("Estudiante creado exitosamente", { type: "success" });
+      notify("Estudiante creado exitosamente", {
+        type: "success",
+        messageArgs: { _: "Estudiante creado exitosamente" },
+      });
       redirect("list", "students");
     } catch (error) {
       // A 422 names its fields ("Los días de gracia deben estar entre 0 y 2.");
       // the message alone says what to fix, so it is shown as it comes.
-      notify(serverErrorMessage(error, "No se pudo crear el estudiante."), {
-        type: "error",
-      });
+      const message = serverErrorMessage(
+        error,
+        "No se pudo crear el estudiante.",
+      );
+      notify(message, { type: "error", messageArgs: { _: message } });
     } finally {
       setSaving(false);
       confirmation.close();
@@ -251,7 +263,7 @@ export const StudentCreate = () => {
           </FormGrid>
         </ScrollableTabbedForm.Tab>
 
-        <ScrollableTabbedForm.Tab label="Apoderados">
+        <ScrollableTabbedForm.Tab label={<FamiliarsTabLabel />}>
           <MultipleFamiliarsForm />
         </ScrollableTabbedForm.Tab>
 

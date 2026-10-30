@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { Form, HttpError, Notification } from "react-admin";
+import { Form, HttpError, Notification, TextInput } from "react-admin";
 import { renderWithAdmin } from "@/test/render-with-admin";
 import type {
   EnrollmentPreview,
@@ -597,6 +597,63 @@ describe(
       expect(dataProvider.previewEnrollment.mock.calls.length).toBe(2);
       expect(dataProvider.create).not.toHaveBeenCalled();
     });
+
+    it("cancelling during the check ends it: a late answer opens nothing, and the next click works", async () => {
+      const user = userEvent.setup();
+      const dataProvider = makeDataProvider();
+      renderDialog(dataProvider);
+
+      await choosePlacement(user, "2027", "Normal");
+      await screen.findByRole("list", { name: "Cobros de la matrícula" });
+
+      let answerFirstCheck = (_: EnrollmentPreview) => {};
+      dataProvider.previewEnrollment.mockImplementationOnce(
+        () =>
+          new Promise<EnrollmentPreview>((resolve) => {
+            answerFirstCheck = resolve;
+          }),
+      );
+      await user.click(screen.getByRole("button", { name: "Matricular" }));
+      const first = within(await confirmDialog());
+      await user.click(first.getByRole("button", { name: "Cancelar" }));
+      await waitFor(() =>
+        expect(
+          screen.queryByRole("dialog", { name: "Confirmar matrícula" }),
+        ).not.toBeInTheDocument(),
+      );
+
+      answerFirstCheck({ ...preview, enrollmentMonthChoice: null });
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      expect(
+        screen.queryByRole("dialog", { name: "Confirmar matrícula" }),
+      ).not.toBeInTheDocument();
+
+      await enroll(user);
+      await waitFor(() => expect(dataProvider.create).toHaveBeenCalledTimes(1));
+    });
+
+    it("ignores an old first-month answer when the check says no question applies", async () => {
+      const user = userEvent.setup();
+      const dataProvider = makeDataProvider();
+      renderDialog(dataProvider);
+
+      await choosePlacement(user);
+      await user.click(await screen.findByLabelText("No, desde noviembre"));
+      await screen.findByRole("list", { name: "Cobros de la matrícula" });
+      dataProvider.previewEnrollment.mockImplementationOnce(async () => ({
+        ...preview,
+        enrollmentMonthChoice: null,
+      }));
+
+      await enroll(user);
+
+      await waitFor(() => expect(dataProvider.create).toHaveBeenCalled());
+      const [, { data }] = dataProvider.create.mock.calls[0] as unknown as [
+        string,
+        { data: Record<string, unknown> },
+      ];
+      expect(data.billEnrollmentMonth).toBe(true);
+    });
   },
 );
 
@@ -635,6 +692,35 @@ describe("New-student form — enrollment part", { timeout: 60_000 }, () => {
       billEnrollmentMonth: true,
       familiarDocuments: [{ documentTypeId: 1, idDocumentNumber: "90000001" }],
     });
+  });
+
+  it("waits for the typing to stop before asking about a typed document", async () => {
+    const user = userEvent.setup();
+    const dataProvider = makeDataProvider();
+    renderWithAdmin(
+      <Form defaultValues={{ familiars: [{ documentTypeId: 1 }] }}>
+        <EnrollmentFormInputs sourcePrefix="enrollment" />
+        <TextInput source="familiars.0.idDocumentNumber" label="Documento" />
+      </Form>,
+      { dataProvider },
+    );
+
+    await choosePlacement(user, "2027");
+    await screen.findByRole("list", { name: "Cobros de la matrícula" });
+    const before = dataProvider.previewEnrollment.mock.calls.length;
+
+    await user.type(screen.getByLabelText("Documento"), "90000001");
+
+    await waitFor(
+      () =>
+        expect(lastPreview(dataProvider)).toMatchObject({
+          familiarDocuments: [
+            { documentTypeId: 1, idDocumentNumber: "90000001" },
+          ],
+        }),
+      { timeout: 3_000 },
+    );
+    expect(dataProvider.previewEnrollment.mock.calls.length).toBe(before + 1);
   });
 
   it("checks with the documents on clicking enroll, names who was found, then creates", async () => {

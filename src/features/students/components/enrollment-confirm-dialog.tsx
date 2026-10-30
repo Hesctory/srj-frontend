@@ -65,7 +65,9 @@ const EnrollmentConfirmDialog = ({
                 {serverErrorMessage(
                   error,
                   "Inténtalo de nuevo, o matricula sin esta verificación.",
-                )}
+                )}{" "}
+                Si sigues, se cobra la pensión del mes en curso salvo que hayas
+                indicado lo contrario.
               </Alert>
             ) : null}
             {preview && (
