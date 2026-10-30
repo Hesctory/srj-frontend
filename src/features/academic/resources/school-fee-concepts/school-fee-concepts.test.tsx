@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Route, Routes } from "react-router-dom";
-import { HttpError } from "react-admin";
+import { HttpError, Notification } from "react-admin";
 import { renderWithAdmin } from "@/test/render-with-admin";
 import type { SchoolFeeConcept } from "@/types/school-fee-concept";
 import { formatMoney } from "@/utils/money";
@@ -37,6 +37,7 @@ const makeDataProvider = () => ({
   update: vi.fn(async (_resource: string, { data }: { data: object }) => ({
     data: { ...concepts[1], ...data },
   })),
+  delete: vi.fn(async () => ({ data: concepts[1] })),
 });
 
 const renderCreate = (dataProvider: ReturnType<typeof makeDataProvider>) =>
@@ -53,13 +54,16 @@ const renderCreate = (dataProvider: ReturnType<typeof makeDataProvider>) =>
 
 const renderEdit = (dataProvider: ReturnType<typeof makeDataProvider>) =>
   renderWithAdmin(
-    <Routes>
-      <Route
-        path="/school-fee-concepts/:id"
-        element={<SchoolFeeConceptsEdit />}
-      />
-      <Route path="/school-fee-concepts" element={<p>Listado</p>} />
-    </Routes>,
+    <>
+      <Routes>
+        <Route
+          path="/school-fee-concepts/:id"
+          element={<SchoolFeeConceptsEdit />}
+        />
+        <Route path="/school-fee-concepts" element={<p>Listado</p>} />
+      </Routes>
+      <Notification />
+    </>,
     { dataProvider, resource: "school-fee-concepts" },
   );
 
@@ -207,5 +211,26 @@ describe("SchoolFeeConceptsEdit", { timeout: 30_000 }, () => {
         "El descuento debe estar entre 0 y 999.99, con hasta dos decimales.",
       ),
     ).toBeInTheDocument();
+  });
+
+  it("shows why a concept in use cannot be deleted (409)", async () => {
+    const user = userEvent.setup();
+    const dataProvider = makeDataProvider();
+    const message =
+      "El concepto de pago está en uso por matrículas o tarifas; no se puede eliminar.";
+    dataProvider.delete.mockRejectedValueOnce(
+      new HttpError(message, 409, { message }),
+    );
+    renderEdit(dataProvider);
+
+    await user.click(await screen.findByRole("button", { name: "Eliminar" }));
+    await user.click(
+      within(await screen.findByRole("dialog")).getByRole("button", {
+        name: /Confirmar|Aceptar|Eliminar/,
+      }),
+    );
+
+    expect(await screen.findByText(message)).toBeInTheDocument();
+    expect(screen.queryByText("Listado")).not.toBeInTheDocument();
   });
 });
