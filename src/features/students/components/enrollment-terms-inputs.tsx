@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { RadioButtonGroupInput, required } from "react-admin";
 import { useFormContext } from "react-hook-form";
+import { fullRowField } from "@/shared/components/form-grid";
 import {
   MONTH_NAMES,
   useEnrollmentChoices,
@@ -60,6 +61,7 @@ const EnrollmentTermsInputs = ({
         parse={graceParse}
         helperText="Si el apoderado pide uno o dos días para pagarla."
         row
+        sx={fullRowField}
       />
       {month && (
         <RadioButtonGroupInput
@@ -80,6 +82,7 @@ const EnrollmentTermsInputs = ({
           isRequired
           validate={required("Indica si se cobra la pensión de este mes.")}
           row
+          sx={fullRowField}
         />
       )}
     </>

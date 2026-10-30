@@ -248,6 +248,30 @@ describe(
       ).not.toBeInTheDocument();
     });
 
+    it("drops the first-month answer when the school year changes", async () => {
+      const user = userEvent.setup();
+      const dataProvider = makeDataProvider();
+      renderDialog(dataProvider);
+
+      await choosePlacement(user);
+      await user.click(await screen.findByLabelText("No, desde noviembre"));
+      await waitFor(() =>
+        expect(lastPreview(dataProvider)).toMatchObject({
+          billEnrollmentMonth: false,
+        }),
+      );
+
+      // A new year clears the cascade below it; fill it again for 2027.
+      await choosePlacement(user, "2027");
+
+      await waitFor(() =>
+        expect(lastPreview(dataProvider)).toMatchObject({
+          schoolYearId: 6,
+          billEnrollmentMonth: true,
+        }),
+      );
+    });
+
     it("enrolls despite the warnings, with the grace days and the first-month choice", async () => {
       const user = userEvent.setup();
       const dataProvider = makeDataProvider();

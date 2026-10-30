@@ -65,9 +65,6 @@ const EnrollmentDocumentsSection = ({
         borderColor: "divider",
         borderRadius: 1,
         p: 2,
-        // Match the enrollment panel's height when side by side (desktop);
-        // stay natural height when stacked (mobile).
-        height: { xs: "auto", sm: "100%" },
       }}
     >
       <Box display="flex" alignItems="center" gap={1} mb={1}>

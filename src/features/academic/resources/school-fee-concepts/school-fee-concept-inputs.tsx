@@ -24,10 +24,14 @@ export const NEW_CONCEPT_DEFAULTS = {
   discountCondition: null,
 };
 
+// Two fields per section in a 720px card: tracks sized to the card, not to
+// the viewport, so a 2560 screen does not cut them into four 160px columns.
+const COLUMN = 260;
+
 /** The fields Create and Edit share, in the order the contract lists them. */
 export const SchoolFeeConceptInputs = () => (
   <>
-    <FormSection title="Concepto">
+    <FormSection title="Concepto" minColumnWidth={COLUMN}>
       <TextInput
         source="name"
         label="Nombre"
@@ -43,7 +47,7 @@ export const SchoolFeeConceptInputs = () => (
         helperText="Solo avisa al matricular si no se cumple."
       />
     </FormSection>
-    <FormSection title="Descuentos (S/)">
+    <FormSection title="Descuentos (S/)" minColumnWidth={COLUMN}>
       <NumberInput
         source="enrollmentDiscount"
         label="Descuento en la matrícula"

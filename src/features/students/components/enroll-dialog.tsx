@@ -76,7 +76,22 @@ export const EnrollDialog = ({
   };
 
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
+    <Dialog
+      open={open}
+      onClose={onClose}
+      fullWidth
+      maxWidth="md"
+      // The <form> sits between the paper and its parts; making it the flex
+      // column lets only the content scroll, so the title and Matricular stay
+      // in view however many pensiones the preview lists.
+      sx={{
+        "& .MuiDialog-paper > form": {
+          display: "flex",
+          flexDirection: "column",
+          minHeight: 0,
+        },
+      }}
+    >
       <Form onSubmit={handleSubmit}>
         <DialogTitle>Matricular Estudiante</DialogTitle>
         <DialogContent>

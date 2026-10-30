@@ -105,7 +105,12 @@ const EnrollmentChargesPreview = ({
     return (
       <>
         {data.warnings.length > 0 && (
-          <Alert severity="warning" sx={{ mb: 1.5 }}>
+          <Alert
+            severity="warning"
+            // As wide as its sentences: on a 2560 screen a panel-wide alert
+            // is mostly empty tint.
+            sx={{ mb: 1.5, width: "fit-content", maxWidth: "100%" }}
+          >
             <AlertTitle>Revisa antes de matricular</AlertTitle>
             <Box component="ul" sx={{ m: 0, pl: 2 }}>
               {data.warnings.map((warning, index) => (

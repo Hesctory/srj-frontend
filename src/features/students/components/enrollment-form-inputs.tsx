@@ -80,16 +80,24 @@ const EnrollmentFormInputs = ({
             <EnrollmentTermsInputs sourcePrefix={sourcePrefix} />
           </FormGrid>
         </Box>
-        <Box flex={1} width="100%">
+        {/* The charges sit under the short documents list, beside the tall
+            choices that drive them, instead of below everything. */}
+        <Box
+          flex={1}
+          width="100%"
+          display="flex"
+          flexDirection="column"
+          gap={2}
+          // The charges panel takes the height the documents leave, so both
+          // columns end on the same line on desktop.
+          sx={{ "& > section": { flexGrow: 1 } }}
+        >
           <EnrollmentDocumentsSection sourcePrefix={sourcePrefix} />
+          <EnrollmentChargesPreview
+            sourcePrefix={sourcePrefix}
+            studentId={studentId}
+          />
         </Box>
-      </Box>
-      {/* Below both panels: ten pensiones need the full width to read. */}
-      <Box mt={2}>
-        <EnrollmentChargesPreview
-          sourcePrefix={sourcePrefix}
-          studentId={studentId}
-        />
       </Box>
     </Box>
   );
