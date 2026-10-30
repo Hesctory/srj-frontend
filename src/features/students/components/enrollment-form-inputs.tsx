@@ -73,7 +73,10 @@ const EnrollmentFormInputs = ({
             />
           </ReferenceInput>
           {/* Ahead of the free-text field: they decide the charges. */}
-          <EnrollmentTermsInputs sourcePrefix={sourcePrefix} />
+          <EnrollmentTermsInputs
+            sourcePrefix={sourcePrefix}
+            studentId={studentId}
+          />
           <TextInput
             source={`${base}previousSchool`}
             label="Colegio Anterior"

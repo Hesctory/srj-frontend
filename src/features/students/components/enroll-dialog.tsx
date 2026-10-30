@@ -14,12 +14,18 @@ import {
   useRedirect,
   Identifier,
 } from "react-admin";
-import { withBillDefault } from "@/features/students/hooks/use-enrollment-preview";
+import {
+  UNANSWERED_MONTH_MESSAGE,
+  previewBodyOf,
+  useEnrollmentConfirmation,
+  withBillDefault,
+} from "@/features/students/hooks/use-enrollment-preview";
 import {
   fieldErrors,
   serverErrorMessage,
   splitFieldErrors,
 } from "@/features/students/utils/server-errors";
+import EnrollmentConfirmDialog from "./enrollment-confirm-dialog";
 import EnrollmentFormInputs from "./enrollment-form-inputs";
 
 interface EnrollDialogProps {
@@ -44,10 +50,21 @@ export const EnrollDialog = ({
   // One click, one enrollment: while it is written, neither Matricular nor
   // Cancelar, Escape or the backdrop can act.
   const [saving, setSaving] = useState(false);
+  const confirmation = useEnrollmentConfirmation();
+  const enrolledId = studentId === null ? null : Number(studentId);
 
+  // The submit stays pending while staff read the confirmation, so a field
+  // error from the create still lands through the form's own return value.
   // A 422's messages go on the fields the form shows; the rest (409 already
   // enrolled, 404 no fees, a key with no visible input) are a notification.
   const handleSubmit = async (enrollmentData: Record<string, unknown>) => {
+    const { go, unanswered } = await confirmation.ask(
+      previewBodyOf(enrollmentData, enrolledId, studentData?.familiars),
+      typeof enrollmentData.billEnrollmentMonth === "boolean",
+    );
+    if (unanswered) return { billEnrollmentMonth: UNANSWERED_MONTH_MESSAGE };
+    if (!go) return;
+
     setSaving(true);
     try {
       const enrollment = withBillDefault(enrollmentData);
@@ -79,6 +96,7 @@ export const EnrollDialog = ({
       if (Object.keys(onFields).length > 0) return onFields;
     } finally {
       setSaving(false);
+      confirmation.close();
     }
   };
 
@@ -103,9 +121,7 @@ export const EnrollDialog = ({
         <DialogTitle>Matricular Estudiante</DialogTitle>
         <DialogContent>
           <Box mt={1}>
-            <EnrollmentFormInputs
-              studentId={studentId === null ? null : Number(studentId)}
-            />
+            <EnrollmentFormInputs studentId={enrolledId} />
           </Box>
         </DialogContent>
         <DialogActions>
@@ -122,6 +138,11 @@ export const EnrollDialog = ({
           </Button>
         </DialogActions>
       </Form>
+      <EnrollmentConfirmDialog
+        {...confirmation.dialog}
+        saving={saving}
+        question="¿Confirmar la matrícula del estudiante?"
+      />
     </Dialog>
   );
 };

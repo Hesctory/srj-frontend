@@ -1,3 +1,4 @@
+import type { DiscountCondition } from "@/types/school-fee-concept";
 import { Identifier } from "react-admin";
 
 export interface EnrollmentSummary {
@@ -39,6 +40,16 @@ export interface PreviewEnrollment {
   graceDays: number;
   /** Whether the pensión of the month the student starts in is billed. */
   billEnrollmentMonth: boolean;
+  /**
+   * The familiars typed so far, for the eligibility check when there is no
+   * student yet. A blank number is not usable, so those are left out.
+   */
+  familiarDocuments?: FamiliarDocument[] | null;
+}
+
+export interface FamiliarDocument {
+  documentTypeId: number;
+  idDocumentNumber: string | null;
 }
 
 /** 1 cuota de ingreso, 2 matrícula, 3 pensión. */
@@ -71,7 +82,21 @@ export interface EnrollmentWarning {
   message: string | null;
 }
 
+/** Null `eligibility` means the concept has no condition to check. */
+export interface EnrollmentEligibility {
+  condition: DiscountCondition | null;
+  /** True: someone qualifies. False: nobody does. Null: nothing to check. */
+  met: boolean | null;
+  /** The enrolled siblings, or the staff members, that qualify. */
+  matches: { personId: number; fullName: string | null }[];
+}
+
 export interface EnrollmentPreview {
   charges: EnrollmentPreviewCharge[];
   warnings: EnrollmentWarning[];
+  eligibility: EnrollmentEligibility | null;
+  /** The API's today (YYYY-MM-DD), the day the enrollment would take. */
+  enrollmentDate: string;
+  /** The month whose pensión staff must decide on; null when there is no choice. */
+  enrollmentMonthChoice: number | null;
 }

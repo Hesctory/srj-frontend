@@ -7,8 +7,12 @@ import {
   Typography,
 } from "@mui/material";
 import ReceiptLongOutlinedIcon from "@mui/icons-material/ReceiptLongOutlined";
-import { useEnrollmentPreview } from "@/features/students/hooks/use-enrollment-preview";
+import {
+  MONTH_NAMES,
+  useEnrollmentPreview,
+} from "@/features/students/hooks/use-enrollment-preview";
 import { serverErrorMessage } from "@/features/students/utils/server-errors";
+import EnrollmentChecks from "./enrollment-checks";
 import type { EnrollmentPreviewCharge } from "@/types/enrollment";
 import { formatIsoDate, formatMoney } from "@/utils/money";
 
@@ -67,16 +71,21 @@ const EnrollmentChargesPreview = ({
   studentId,
 }: EnrollmentChargesPreviewProps) => {
   const base = sourcePrefix ? `${sourcePrefix}.` : "";
-  const { data, error, isPending, isFetching, complete, choiceMonth } =
-    useEnrollmentPreview(base, studentId);
+  const {
+    data,
+    error,
+    isPending,
+    isFetching,
+    complete,
+    choiceMonth,
+    awaitingAnswer,
+  } = useEnrollmentPreview(base, studentId);
 
   const body = () => {
     if (!complete) {
       return (
         <Typography variant="body2" color="text.secondary">
-          {choiceMonth === null
-            ? "Elige año, nivel, grado, turno y concepto para ver los cobros."
-            : "Elige año, nivel, grado, turno, concepto y si se cobra la pensión de este mes para ver los cobros."}
+          Elige año, nivel, grado, turno y concepto para ver los cobros.
         </Typography>
       );
     }
@@ -95,6 +104,25 @@ const EnrollmentChargesPreview = ({
       return <Skeleton variant="rounded" height={120} />;
     }
 
+    // The charges depend on the answer: until it is given, listing the ones
+    // for "yes" would read as if it had been decided.
+    if (awaitingAnswer && choiceMonth !== null) {
+      return (
+        <>
+          <Box sx={{ mb: 1.5 }}>
+            <EnrollmentChecks
+              eligibility={data.eligibility}
+              warnings={data.warnings}
+            />
+          </Box>
+          <Typography variant="body2" color="text.secondary">
+            Indica si se cobra la pensión de {MONTH_NAMES[choiceMonth - 1]} para
+            ver los cobros.
+          </Typography>
+        </>
+      );
+    }
+
     const reasons = [
       ...new Set(data.charges.map((c) => c.discountReason).filter(Boolean)),
     ];
@@ -102,24 +130,12 @@ const EnrollmentChargesPreview = ({
 
     return (
       <>
-        {data.warnings.length > 0 && (
-          <Alert
-            severity="warning"
-            // As wide as its sentences: on a 2560 screen a panel-wide alert
-            // is mostly empty tint.
-            sx={{ mb: 1.5, width: "fit-content", maxWidth: "100%" }}
-          >
-            <AlertTitle>Revisa antes de matricular</AlertTitle>
-            <Box component="ul" sx={{ m: 0, pl: 2 }}>
-              {data.warnings.map((warning, index) => (
-                <li key={index}>{warning.message}</li>
-              ))}
-            </Box>
-            <Typography variant="caption" component="p" sx={{ mt: 0.5 }}>
-              Puedes matricular igual.
-            </Typography>
-          </Alert>
-        )}
+        <Box sx={{ mb: 1.5 }}>
+          <EnrollmentChecks
+            eligibility={data.eligibility}
+            warnings={data.warnings}
+          />
+        </Box>
         <Box
           component="ul"
           aria-label="Cobros de la matrícula"

@@ -76,7 +76,13 @@ Placing a student in a grade, shift and section for a school year.
   "shiftId": 1,
   "schoolFeeConceptId": 1,
   "graceDays": 1,               // Days of grace on the matrícula and cuota de ingreso, 0–2.
-  "billEnrollmentMonth": true   // Whether the pensión of the month the student starts in is billed.
+  "billEnrollmentMonth": true,  // Whether the pensión of the month the student starts in is billed.
+  "familiarDocuments": [
+    {
+      "documentTypeId": 1,
+      "idDocumentNumber": "…"   // string | null
+    }
+  ]
 }
 ```
 
@@ -103,7 +109,19 @@ What the enroll dialog has chosen so far, to show the charges it would raise.
       "code": "SIBLING_NOT_FOUND",  // "SIBLING_NOT_FOUND" | "STAFF_PARENT_NOT_FOUND" | "LATE_ENROLLMENT" | "DISCOUNT_UNVERIFIED" — string | null
       "message": "…"                // string | null
     }
-  ]
+  ],
+  "eligibility": {
+    "condition": "SIBLING",  // "SIBLING" | "STAFF_CHILD" — string | null
+    "met": true,             // boolean | null — True when someone qualifies, false when nobody does, null when there was nothing to check against.
+    "matches": [
+      {
+        "personId": 1,
+        "fullName": "…"   // string | null
+      }
+    ]
+  },
+  "enrollmentDate": "2026-08-19",  // YYYY-MM-DD — The API's today, the day the enrollment would take.
+  "enrollmentMonthChoice": 1       // number | null — The month whose pensión staff must decide on; null when there is no choice.
 }
 ```
 
@@ -213,7 +231,13 @@ The charges an enrollment would raise today, and what staff should check first.
   "shiftId": 1,
   "schoolFeeConceptId": 1,
   "graceDays": 1,               // Days of grace on the matrícula and cuota de ingreso, 0–2.
-  "billEnrollmentMonth": true   // Whether the pensión of the month the student starts in is billed.
+  "billEnrollmentMonth": true,  // Whether the pensión of the month the student starts in is billed.
+  "familiarDocuments": [
+    {
+      "documentTypeId": 1,
+      "idDocumentNumber": "…"   // string | null
+    }
+  ]
 }
 ```
 

@@ -4,7 +4,8 @@ import { useFormContext } from "react-hook-form";
 import { fullRowField } from "@/shared/components/form-grid";
 import {
   MONTH_NAMES,
-  useEnrollmentChoices,
+  UNANSWERED_MONTH_MESSAGE,
+  useEnrollmentPreview,
 } from "@/features/students/hooks/use-enrollment-preview";
 
 const GRACE_CHOICES = [
@@ -23,29 +24,35 @@ const billParse = (value: string) => value === "bill";
 
 interface EnrollmentTermsInputsProps {
   sourcePrefix?: string;
+  /** Null on the new-student form. */
+  studentId: number | null;
 }
 
 /**
  * When the upfront charges fall due, and whether the month the student starts
- * in is billed. The second question only exists during a billed month of the
- * school year's own year; staff answer it every time (no default), since
- * around the 20th the school usually skips the month but has no fixed day.
+ * in is billed. The API says when the second question applies; staff answer it
+ * every time (no default), since around the 20th the school usually skips the
+ * month but has no fixed day.
  */
 const EnrollmentTermsInputs = ({
   sourcePrefix,
+  studentId,
 }: EnrollmentTermsInputsProps) => {
   const base = sourcePrefix ? `${sourcePrefix}.` : "";
   const billSource = `${base}billEnrollmentMonth`;
-  const { choiceMonth, billEnrollmentMonth } = useEnrollmentChoices(base);
+  const { choiceMonth, billEnrollmentMonth, noQuestion } = useEnrollmentPreview(
+    base,
+    studentId,
+  );
   const { setValue } = useFormContext();
 
   // A choice made for one school year means nothing for another: drop it so
-  // it is neither sent nor shown when the question goes away.
+  // it is not sent once the API says the question does not apply.
   useEffect(() => {
-    if (choiceMonth === null && billEnrollmentMonth !== null) {
+    if (noQuestion && billEnrollmentMonth !== null) {
       setValue(billSource, undefined);
     }
-  }, [choiceMonth, billEnrollmentMonth, billSource, setValue]);
+  }, [noQuestion, billEnrollmentMonth, billSource, setValue]);
 
   const month = choiceMonth === null ? null : MONTH_NAMES[choiceMonth - 1];
   const next = choiceMonth === null ? null : MONTH_NAMES[choiceMonth % 12];
@@ -80,7 +87,7 @@ const EnrollmentTermsInputs = ({
           format={billFormat}
           parse={billParse}
           isRequired
-          validate={required("Indica si se cobra la pensión de este mes.")}
+          validate={required(UNANSWERED_MONTH_MESSAGE)}
           row
           sx={fullRowField}
         />

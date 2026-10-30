@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Form, HttpError, Notification } from "react-admin";
@@ -9,6 +9,7 @@ import type {
 } from "@/types/enrollment";
 import { formatMoney } from "@/utils/money";
 import { EnrollDialog } from "./enroll-dialog";
+import { ConfirmCreateStudentButton } from "@/features/students/resources/students/student-create";
 import EnrollmentFormInputs from "./enrollment-form-inputs";
 
 // Testing Library collapses the no-break space Intl puts after "S/".
@@ -67,7 +68,16 @@ const preview: EnrollmentPreview = {
       message: "No hay un hermano matriculado en 2026.",
     },
   ],
+  eligibility: { condition: "SIBLING", met: false, matches: [] },
+  enrollmentDate: "2026-10-21",
+  enrollmentMonthChoice: 10,
 };
+
+// The API decides the first-month question: year 5 is running, year 6 is not.
+const previewFor = ({ schoolYearId }: { schoolYearId: number }) => ({
+  ...preview,
+  enrollmentMonthChoice: schoolYearId === 5 ? 10 : null,
+});
 
 const makeDataProvider = () => ({
   getList: vi.fn(async (resource: string) => {
@@ -80,7 +90,9 @@ const makeDataProvider = () => ({
   getOne: vi.fn(async (resource: string, { id }: { id: unknown }) => ({
     data: (rows[resource] ?? []).find((row) => row.id === Number(id)),
   })),
-  previewEnrollment: vi.fn(async () => preview),
+  previewEnrollment: vi.fn(async (body: { schoolYearId: number }) =>
+    previewFor(body),
+  ),
   create: vi.fn(async () => ({ data: { id: 40 } })),
 });
 
@@ -135,21 +147,23 @@ const lastPreview = (dataProvider: Provider) => {
   return calls[calls.length - 1][0];
 };
 
-beforeEach(() => {
-  // Only the clock: user-event still needs real timers.
-  vi.useFakeTimers({ toFake: ["Date"] });
-  vi.setSystemTime(new Date(2026, 9, 21, 10, 0));
-});
+const confirmDialog = () =>
+  screen.findByRole("dialog", { name: "Confirmar matrícula" });
 
-afterEach(() => {
-  vi.useRealTimers();
-});
+/** Clicks enroll, then goes on from the confirmation. */
+const enroll = async (user: ReturnType<typeof userEvent.setup>) => {
+  await user.click(screen.getByRole("button", { name: "Matricular" }));
+  const dialog = await confirmDialog();
+  await user.click(
+    await within(dialog).findByRole("button", { name: /^Matricular/ }),
+  );
+};
 
 describe(
   "EnrollDialog — first month, grace and charges",
   { timeout: 60_000 },
   () => {
-    it("asks whether the current month is billed before previewing", async () => {
+    it("asks the first-month question the API names, and lists charges once answered", async () => {
       const user = userEvent.setup();
       const dataProvider = makeDataProvider();
       renderDialog(dataProvider);
@@ -159,18 +173,20 @@ describe(
       expect(
         await screen.findByText("¿Se cobra la pensión de octubre?"),
       ).toBeInTheDocument();
-      expect(dataProvider.previewEnrollment).not.toHaveBeenCalled();
       expect(
         screen.getByText(
-          /si se cobra la pensión de este mes para ver los cobros/,
+          "Indica si se cobra la pensión de octubre para ver los cobros.",
         ),
       ).toBeInTheDocument();
+      expect(
+        screen.queryByRole("list", { name: "Cobros de la matrícula" }),
+      ).not.toBeInTheDocument();
 
       await user.click(screen.getByLabelText("No, desde noviembre"));
 
-      await waitFor(() =>
-        expect(dataProvider.previewEnrollment).toHaveBeenCalled(),
-      );
+      expect(
+        await screen.findByRole("list", { name: "Cobros de la matrícula" }),
+      ).toBeInTheDocument();
       expect(lastPreview(dataProvider)).toEqual({
         studentId: 24,
         schoolYearId: 5,
@@ -181,6 +197,24 @@ describe(
         graceDays: 0,
         billEnrollmentMonth: false,
       });
+    });
+
+    it("follows the API's month, not the browser's date", async () => {
+      const user = userEvent.setup();
+      const dataProvider = makeDataProvider();
+      dataProvider.previewEnrollment.mockImplementation(async () => ({
+        ...preview,
+        enrollmentDate: "2026-04-15",
+        enrollmentMonthChoice: 4,
+      }));
+      renderDialog(dataProvider);
+
+      await choosePlacement(user);
+
+      expect(
+        await screen.findByText("¿Se cobra la pensión de abril?"),
+      ).toBeInTheDocument();
+      expect(screen.getByLabelText("No, desde mayo")).toBeInTheDocument();
     });
 
     it("shows each charge's net amount, due date and discount, and the warnings", async () => {
@@ -284,7 +318,7 @@ describe(
       await user.click(await screen.findByLabelText("No, desde noviembre"));
       await user.click(screen.getByLabelText("1 día"));
       await screen.findByText("No hay un hermano matriculado en 2026.");
-      await user.click(screen.getByRole("button", { name: "Matricular" }));
+      await enroll(user);
 
       await waitFor(() => expect(dataProvider.create).toHaveBeenCalled());
       const [resource, { data }] = dataProvider.create.mock
@@ -341,7 +375,7 @@ describe(
       renderDialog(dataProvider);
 
       await choosePlacement(user, "2027");
-      await user.click(screen.getByRole("button", { name: "Matricular" }));
+      await enroll(user);
 
       expect(
         await screen.findByText("Los días de gracia deben estar entre 0 y 2."),
@@ -359,7 +393,7 @@ describe(
       renderDialog(dataProvider);
 
       await choosePlacement(user, "2027");
-      await user.click(screen.getByRole("button", { name: "Matricular" }));
+      await enroll(user);
 
       expect(
         await screen.findByText("El estudiante no existe."),
@@ -372,7 +406,7 @@ describe(
       renderDialog(dataProvider);
 
       await choosePlacement(user, "2027");
-      await user.click(screen.getByRole("button", { name: "Matricular" }));
+      await enroll(user);
 
       await waitFor(() => expect(dataProvider.create).toHaveBeenCalled());
       const [, { data }] = dataProvider.create.mock.calls[0] as unknown as [
@@ -392,28 +426,200 @@ describe(
       renderDialog(dataProvider);
 
       await choosePlacement(user, "2027");
-      await user.click(screen.getByRole("button", { name: "Matricular" }));
+      await enroll(user);
 
       expect(
         await screen.findByRole("button", { name: "Matriculando…" }),
       ).toBeDisabled();
       expect(screen.getByRole("button", { name: "Cancelar" })).toBeDisabled();
     });
+
+    it("names the sibling found when enroll is clicked", async () => {
+      const user = userEvent.setup();
+      const dataProvider = makeDataProvider();
+      dataProvider.previewEnrollment.mockImplementation(async () => ({
+        ...preview,
+        enrollmentMonthChoice: null,
+        warnings: [],
+        eligibility: {
+          condition: "SIBLING" as const,
+          met: true,
+          matches: [{ personId: 9, fullName: "Ana Prueba" }],
+        },
+      }));
+      renderDialog(dataProvider);
+
+      await choosePlacement(user, "2027");
+      await user.click(screen.getByRole("button", { name: "Matricular" }));
+
+      const dialog = within(await confirmDialog());
+      expect(
+        await dialog.findByText("Hermano matriculado encontrado"),
+      ).toBeInTheDocument();
+      expect(dialog.getByText("Ana Prueba")).toBeInTheDocument();
+      expect(dataProvider.create).not.toHaveBeenCalled();
+
+      await user.click(dialog.getByRole("button", { name: "Matricular" }));
+      await waitFor(() => expect(dataProvider.create).toHaveBeenCalled());
+    });
+
+    it("names the staff member found", async () => {
+      const user = userEvent.setup();
+      const dataProvider = makeDataProvider();
+      dataProvider.previewEnrollment.mockImplementation(async () => ({
+        ...preview,
+        enrollmentMonthChoice: null,
+        warnings: [],
+        eligibility: {
+          condition: "STAFF_CHILD" as const,
+          met: true,
+          matches: [{ personId: 3, fullName: "Luis Prueba" }],
+        },
+      }));
+      renderDialog(dataProvider);
+
+      await choosePlacement(user, "2027");
+      await user.click(screen.getByRole("button", { name: "Matricular" }));
+
+      const dialog = within(await confirmDialog());
+      expect(
+        await dialog.findByText("Familiar trabajador encontrado"),
+      ).toBeInTheDocument();
+      expect(dialog.getByText("Luis Prueba")).toBeInTheDocument();
+    });
+
+    it("shows every warning at the confirmation, late enrollment included, and lets them go on", async () => {
+      const user = userEvent.setup();
+      const dataProvider = makeDataProvider();
+      dataProvider.previewEnrollment.mockImplementation(async () => ({
+        ...preview,
+        enrollmentMonthChoice: null,
+        warnings: [
+          ...preview.warnings,
+          { code: "LATE_ENROLLMENT" as const, message: "Matrícula tardía." },
+        ],
+      }));
+      renderDialog(dataProvider);
+
+      await choosePlacement(user, "2027");
+      await user.click(screen.getByRole("button", { name: "Matricular" }));
+
+      const dialog = within(await confirmDialog());
+      expect(
+        await dialog.findByText("No hay un hermano matriculado en 2026."),
+      ).toBeInTheDocument();
+      expect(dialog.getByText("Matrícula tardía.")).toBeInTheDocument();
+
+      await user.click(
+        dialog.getByRole("button", { name: "Matricular de todos modos" }),
+      );
+      await waitFor(() => expect(dataProvider.create).toHaveBeenCalled());
+    });
+
+    it("confirms plainly for a concept with no condition", async () => {
+      const user = userEvent.setup();
+      const dataProvider = makeDataProvider();
+      dataProvider.previewEnrollment.mockImplementation(async () => ({
+        ...preview,
+        enrollmentMonthChoice: null,
+        warnings: [],
+        eligibility: null,
+      }));
+      renderDialog(dataProvider);
+
+      await choosePlacement(user, "2027", "Normal");
+      await user.click(screen.getByRole("button", { name: "Matricular" }));
+
+      const dialog = within(await confirmDialog());
+      expect(
+        await dialog.findByText("¿Confirmar la matrícula del estudiante?"),
+      ).toBeInTheDocument();
+      expect(dialog.queryByRole("alert")).not.toBeInTheDocument();
+    });
+
+    it("stays on the form when the confirmation is cancelled", async () => {
+      const user = userEvent.setup();
+      const dataProvider = makeDataProvider();
+      renderDialog(dataProvider);
+
+      await choosePlacement(user, "2027");
+      await user.click(screen.getByRole("button", { name: "Matricular" }));
+      const dialog = within(await confirmDialog());
+      await user.click(await dialog.findByRole("button", { name: "Cancelar" }));
+
+      await waitFor(() =>
+        expect(
+          screen.getByRole("button", { name: "Matricular" }),
+        ).toBeEnabled(),
+      );
+      expect(dataProvider.create).not.toHaveBeenCalled();
+    });
+
+    it("still lets them enroll when the check itself fails", async () => {
+      const user = userEvent.setup();
+      const dataProvider = makeDataProvider();
+      renderDialog(dataProvider);
+
+      await choosePlacement(user, "2027");
+      await screen.findByRole("list", { name: "Cobros de la matrícula" });
+      dataProvider.previewEnrollment.mockRejectedValueOnce(
+        new HttpError("Servicio no disponible", 500, {}),
+      );
+      await user.click(screen.getByRole("button", { name: "Matricular" }));
+
+      const dialog = within(await confirmDialog());
+      expect(
+        await dialog.findByText("No se pudo verificar"),
+      ).toBeInTheDocument();
+      await user.click(
+        dialog.getByRole("button", { name: "Matricular de todos modos" }),
+      );
+      await waitFor(() => expect(dataProvider.create).toHaveBeenCalled());
+    });
+
+    it("does not enroll if the first-month question was still loading at the click", async () => {
+      const user = userEvent.setup();
+      const dataProvider = makeDataProvider();
+      // The live preview hangs; the check at the click answers.
+      dataProvider.previewEnrollment.mockImplementationOnce(
+        () => new Promise(() => undefined),
+      );
+      renderDialog(dataProvider);
+
+      await choosePlacement(user);
+      await user.click(screen.getByRole("button", { name: "Matricular" }));
+
+      await waitFor(() =>
+        expect(
+          screen.queryByRole("dialog", { name: "Confirmar matrícula" }),
+        ).not.toBeInTheDocument(),
+      );
+      expect(dataProvider.previewEnrollment.mock.calls.length).toBe(2);
+      expect(dataProvider.create).not.toHaveBeenCalled();
+    });
   },
 );
 
 describe("New-student form — enrollment part", { timeout: 60_000 }, () => {
-  it("previews with no student and shows that the discount is unverified", async () => {
+  const documented = [
+    { documentTypeId: 1, idDocumentNumber: "90000001", isGuardian: true },
+    { documentTypeId: 1, idDocumentNumber: "  " },
+    { idDocumentNumber: "90000002" },
+  ];
+
+  it("previews with no student and the familiars' usable documents", async () => {
     const user = userEvent.setup();
     const dataProvider = makeDataProvider();
     const message =
-      "No se puede verificar si corresponde «Dscto hermano 1» hasta registrar al estudiante.";
+      "Registre los documentos de los familiares para verificar si corresponde «Dscto hermano 1».";
     dataProvider.previewEnrollment.mockResolvedValue({
-      charges: preview.charges,
+      ...preview,
+      enrollmentMonthChoice: null,
       warnings: [{ code: "DISCOUNT_UNVERIFIED", message }],
+      eligibility: { condition: "SIBLING", met: null, matches: [] },
     });
     renderWithAdmin(
-      <Form>
+      <Form defaultValues={{ familiars: documented }}>
         <EnrollmentFormInputs sourcePrefix="enrollment" />
       </Form>,
       { dataProvider },
@@ -427,6 +633,61 @@ describe("New-student form — enrollment part", { timeout: 60_000 }, () => {
       schoolYearId: 6,
       graceDays: 0,
       billEnrollmentMonth: true,
+      familiarDocuments: [{ documentTypeId: 1, idDocumentNumber: "90000001" }],
     });
+  });
+
+  it("checks with the documents on clicking enroll, names who was found, then creates", async () => {
+    const user = userEvent.setup();
+    const dataProvider = makeDataProvider();
+    dataProvider.previewEnrollment.mockResolvedValue({
+      ...preview,
+      enrollmentMonthChoice: null,
+      warnings: [],
+      eligibility: {
+        condition: "SIBLING",
+        met: true,
+        matches: [{ personId: 9, fullName: "Ana Prueba" }],
+      },
+    });
+    renderWithAdmin(
+      <Form
+        defaultValues={{
+          familiars: documented,
+          enrollment: {
+            schoolYearId: 6,
+            levelId: 1,
+            gradeId: 1,
+            shiftId: 1,
+            sectionId: 1,
+            schoolFeeConceptId: 2,
+          },
+        }}
+      >
+        <ConfirmCreateStudentButton />
+      </Form>,
+      { dataProvider },
+    );
+
+    await user.click(await screen.findByRole("button", { name: "Matricular" }));
+
+    const dialog = within(await confirmDialog());
+    expect(await dialog.findByText("Ana Prueba")).toBeInTheDocument();
+    expect(lastPreview(dataProvider)).toMatchObject({
+      studentId: null,
+      familiarDocuments: [{ documentTypeId: 1, idDocumentNumber: "90000001" }],
+    });
+    expect(dataProvider.create).not.toHaveBeenCalled();
+
+    await user.click(dialog.getByRole("button", { name: "Matricular" }));
+
+    await waitFor(() => expect(dataProvider.create).toHaveBeenCalled());
+    const [resource, { data }] = dataProvider.create.mock
+      .calls[0] as unknown as [
+      string,
+      { data: { enrollment: Record<string, unknown> } },
+    ];
+    expect(resource).toBe("students");
+    expect(data.enrollment.billEnrollmentMonth).toBe(true);
   });
 });

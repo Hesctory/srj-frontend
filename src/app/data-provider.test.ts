@@ -318,6 +318,7 @@ describe("dataProvider", () => {
       schoolFeeConceptId: 2,
       graceDays: 2,
       billEnrollmentMonth: false,
+      familiarDocuments: [{ documentTypeId: 1, idDocumentNumber: "90000001" }],
     };
 
     await dataProvider.previewEnrollment(body);

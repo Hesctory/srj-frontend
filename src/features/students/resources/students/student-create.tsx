@@ -14,14 +14,6 @@ import {
   useRedirect,
 } from "react-admin";
 import { useFormContext } from "react-hook-form";
-import {
-  Button as MuiButton,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  Typography,
-} from "@mui/material";
 import SchoolIcon from "@mui/icons-material/School";
 import CRUDToolBar from "@/app/layout/crud-toolbar";
 import ScrollableTabbedForm from "@/shared/components/scrollable-tabbed-form";
@@ -35,28 +27,52 @@ import LocationFormSelector from "@/shared/components/location-form-selector";
 import SecondLanguagesFormSelector from "@/features/students/components/second-languages-form-selector";
 import MultipleFamiliarsForm from "@/features/students/components/multiple-familiars-form";
 import EnrollmentFormInputs from "@/features/students/components/enrollment-form-inputs";
-import { withBillDefault } from "@/features/students/hooks/use-enrollment-preview";
+import EnrollmentConfirmDialog from "@/features/students/components/enrollment-confirm-dialog";
+import { familiarsProblem } from "@/features/students/components/multiple-familiars-form";
+import {
+  UNANSWERED_MONTH_MESSAGE,
+  previewBodyOf,
+  useEnrollmentConfirmation,
+  withBillDefault,
+} from "@/features/students/hooks/use-enrollment-preview";
 import { serverErrorMessage } from "@/features/students/utils/server-errors";
 
-const ConfirmCreateStudentButton = () => {
-  const [open, setOpen] = useState(false);
+export const ConfirmCreateStudentButton = () => {
   // A second click while the first is saving would create a second student.
   const [saving, setSaving] = useState(false);
   const { trigger, getValues } = useFormContext();
   const dataProvider = useDataProvider();
   const notify = useNotify();
   const redirect = useRedirect();
+  const confirmation = useEnrollmentConfirmation();
 
   const handleClick = async () => {
     const isValid = await trigger();
-    if (!isValid) return;
-    setOpen(true);
-  };
+    if (!isValid) {
+      // Fields on another tab are out of sight, so say what stops it.
+      notify(
+        familiarsProblem(getValues("familiars")) ?? "ra.message.invalid_form",
+        {
+          type: "error",
+        },
+      );
+      return;
+    }
 
-  const handleConfirm = async () => {
+    const values = getValues();
+    // No student yet: eligibility goes through the familiars typed so far.
+    const { go, unanswered } = await confirmation.ask(
+      previewBodyOf(values.enrollment, null, values.familiars),
+      typeof values.enrollment?.billEnrollmentMonth === "boolean",
+    );
+    if (unanswered) {
+      notify(UNANSWERED_MONTH_MESSAGE, { type: "error" });
+      return;
+    }
+    if (!go) return;
+
     setSaving(true);
     try {
-      const values = getValues();
       await dataProvider.create("students", {
         data: { ...values, enrollment: withBillDefault(values.enrollment) },
       });
@@ -70,7 +86,7 @@ const ConfirmCreateStudentButton = () => {
       });
     } finally {
       setSaving(false);
-      setOpen(false);
+      confirmation.close();
     }
   };
 
@@ -88,27 +104,11 @@ const ConfirmCreateStudentButton = () => {
       >
         <SchoolIcon />
       </Button>
-      <Dialog open={open} onClose={saving ? undefined : () => setOpen(false)}>
-        <DialogTitle>Confirmar creación</DialogTitle>
-        <DialogContent>
-          <Typography>
-            ¿Confirmar la creación del estudiante y su matrícula?
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <MuiButton onClick={() => setOpen(false)} disabled={saving}>
-            Cancelar
-          </MuiButton>
-          <MuiButton
-            variant="contained"
-            color="success"
-            onClick={handleConfirm}
-            disabled={saving}
-          >
-            {saving ? "Creando…" : "Confirmar"}
-          </MuiButton>
-        </DialogActions>
-      </Dialog>
+      <EnrollmentConfirmDialog
+        {...confirmation.dialog}
+        saving={saving}
+        question="¿Confirmar la creación del estudiante y su matrícula?"
+      />
     </>
   );
 };
