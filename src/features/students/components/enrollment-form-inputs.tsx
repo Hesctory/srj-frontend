@@ -20,84 +20,85 @@ const EnrollmentFormInputs = ({
   const base = sourcePrefix ? `${sourcePrefix}.` : "";
 
   return (
-    <Box width="100%">
+    <Box
+      display="flex"
+      flexDirection={{ xs: "column", sm: "row" }}
+      gap={2}
+      alignItems="flex-start"
+      // TabbedForm.Tab lays its children out as a flex column that does not
+      // stretch them, so without this the two panels collapse to their content
+      // width and huddle on the left of a wide screen.
+      width="100%"
+    >
       <Box
-        display="flex"
-        flexDirection={{ xs: "column", sm: "row" }}
-        gap={2}
-        alignItems="stretch"
-        // TabbedForm.Tab lays its children out as a flex column that does not
-        // stretch them, so without this the two panels collapse to their content
-        // width and huddle on the left of a wide screen.
+        flex={1}
         width="100%"
+        minWidth={0}
+        display="flex"
+        flexDirection="column"
+        gap={1}
+        sx={{
+          // Matched panel only on desktop; mobile keeps the plain, boxless form.
+          borderWidth: { xs: 0, sm: 1 },
+          borderStyle: "solid",
+          borderColor: "divider",
+          borderRadius: 1,
+          p: { xs: 0, sm: 2 },
+        }}
       >
         <Box
-          flex={1}
-          width="100%"
-          display="flex"
-          flexDirection="column"
+          alignItems="center"
           gap={1}
-          sx={{
-            // Matched panel only on desktop; mobile keeps the plain, boxless form.
-            borderWidth: { xs: 0, sm: 1 },
-            borderStyle: "solid",
-            borderColor: "divider",
-            borderRadius: 1,
-            p: { xs: 0, sm: 2 },
-          }}
+          mb={1}
+          sx={{ display: { xs: "none", sm: "flex" } }}
         >
-          <Box
-            alignItems="center"
-            gap={1}
-            mb={1}
-            sx={{ display: { xs: "none", sm: "flex" } }}
-          >
-            <BadgeOutlinedIcon fontSize="small" color="action" />
-            <Typography>Datos de matrícula</Typography>
-          </Box>
-          {/* Container-driven tracks, not viewport breakpoints: this panel only
+          <BadgeOutlinedIcon fontSize="small" color="action" />
+          <Typography>Datos de matrícula</Typography>
+        </Box>
+        {/* Container-driven tracks, not viewport breakpoints: this panel only
             owns half the row, so a viewport-wide "xl" would slice it into
             columns too narrow to read. */}
-          <FormGrid minColumnWidth={220}>
-            <AcademicFormSelector sourcePrefix={sourcePrefix} />
-            <ReferenceInput
-              source={`${base}schoolFeeConceptId`}
-              reference="school-fee-concepts"
-            >
-              <SelectInput
-                optionText="name"
-                label="Concepto de Cobro"
-                fullWidth
-                isRequired
-                validate={required()}
-              />
-            </ReferenceInput>
-            <TextInput
-              source={`${base}previousSchool`}
-              label="Colegio Anterior"
+        <FormGrid minColumnWidth={220}>
+          <AcademicFormSelector sourcePrefix={sourcePrefix} />
+          <ReferenceInput
+            source={`${base}schoolFeeConceptId`}
+            reference="school-fee-concepts"
+          >
+            <SelectInput
+              optionText="name"
+              label="Concepto de Cobro"
               fullWidth
+              isRequired
+              validate={required()}
             />
-            <EnrollmentTermsInputs sourcePrefix={sourcePrefix} />
-          </FormGrid>
-        </Box>
-        {/* The charges sit under the short documents list, beside the tall
-            choices that drive them, instead of below everything. */}
-        <Box
-          flex={1}
-          width="100%"
-          display="flex"
-          flexDirection="column"
-          gap={2}
-          // The charges panel takes the height the documents leave, so both
-          // columns end on the same line on desktop.
-          sx={{ "& > section": { flexGrow: 1 } }}
-        >
-          <EnrollmentDocumentsSection sourcePrefix={sourcePrefix} />
-          <EnrollmentChargesPreview
-            sourcePrefix={sourcePrefix}
-            studentId={studentId}
+          </ReferenceInput>
+          {/* Ahead of the free-text field: they decide the charges. */}
+          <EnrollmentTermsInputs sourcePrefix={sourcePrefix} />
+          <TextInput
+            source={`${base}previousSchool`}
+            label="Colegio Anterior"
+            fullWidth
           />
-        </Box>
+        </FormGrid>
+      </Box>
+      {/* The charges first, beside the choices that produce them, so a
+          change shows its price without scrolling; the documents after. */}
+      <Box
+        flex={1}
+        width="100%"
+        minWidth={0}
+        display="flex"
+        flexDirection="column"
+        gap={2}
+        // Both panels hold short lines: on a wide screen they keep a
+        // receipt's width and line up, instead of a mostly empty frame.
+        sx={{ "& > *": { maxWidth: 640 } }}
+      >
+        <EnrollmentChargesPreview
+          sourcePrefix={sourcePrefix}
+          studentId={studentId}
+        />
+        <EnrollmentDocumentsSection sourcePrefix={sourcePrefix} />
       </Box>
     </Box>
   );

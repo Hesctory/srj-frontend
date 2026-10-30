@@ -17,10 +17,16 @@ const condition = (record: SchoolFeeConcept) =>
     ? DISCOUNT_CONDITION_LABELS[record.discountCondition]
     : "Ninguna";
 
+/** Only the discounts it gives: "Pensión −S/ 50.00", or "Sin descuento". */
 const discounts = (record: SchoolFeeConcept) =>
-  `Matrícula −${formatMoney(record.enrollmentDiscount)} · Pensión −${formatMoney(
-    record.tuitionDiscount,
-  )}`;
+  [
+    record.enrollmentDiscount > 0 &&
+      `Matrícula −${formatMoney(record.enrollmentDiscount)}`,
+    record.tuitionDiscount > 0 &&
+      `Pensión −${formatMoney(record.tuitionDiscount)}`,
+  ]
+    .filter(Boolean)
+    .join(" · ") || "Sin descuento";
 
 const MoneyCol = ({
   source,
@@ -61,6 +67,8 @@ export const SchoolFeeConceptsList = () => {
           }
           linkType="edit"
           empty={<Empty />}
+          // Room under the last row for the floating Crear button.
+          sx={{ pb: 14 }}
         />
       ) : (
         <DataTable

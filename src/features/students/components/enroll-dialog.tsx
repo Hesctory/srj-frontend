@@ -6,6 +6,7 @@ import {
   Button,
   Box,
 } from "@mui/material";
+import { useState } from "react";
 import {
   Form,
   useDataProvider,
@@ -13,11 +14,12 @@ import {
   useRedirect,
   Identifier,
 } from "react-admin";
-import { useFormState } from "react-hook-form";
+import { withBillDefault } from "@/features/students/hooks/use-enrollment-preview";
 import {
   fieldErrors,
   serverErrorMessage,
-} from "@/features/students/hooks/use-enrollment-preview";
+  splitFieldErrors,
+} from "@/features/students/utils/server-errors";
 import EnrollmentFormInputs from "./enrollment-form-inputs";
 
 interface EnrollDialogProps {
@@ -27,20 +29,8 @@ interface EnrollDialogProps {
   studentId: Identifier | null;
 }
 
-/** Disabled while the enrollment is being written: one click, one enrollment. */
-const EnrollSubmitButton = () => {
-  const { isSubmitting } = useFormState();
-  return (
-    <Button
-      variant="contained"
-      color="success"
-      type="submit"
-      disabled={isSubmitting}
-    >
-      {isSubmitting ? "Matriculando…" : "Matricular"}
-    </Button>
-  );
-};
+/** Values the form keeps without showing an input for them. */
+const NOT_SHOWN = new Set(["studentId", "documents"]);
 
 export const EnrollDialog = ({
   open,
@@ -51,34 +41,51 @@ export const EnrollDialog = ({
   const dataProvider = useDataProvider();
   const notify = useNotify();
   const redirect = useRedirect();
+  // One click, one enrollment: while it is written, neither Matricular nor
+  // Cancelar, Escape or the backdrop can act.
+  const [saving, setSaving] = useState(false);
 
-  // Resolving with the 422's field errors puts each message on its field;
-  // anything else (409 already enrolled, 404 no fees) is a notification.
+  // A 422's messages go on the fields the form shows; the rest (409 already
+  // enrolled, 404 no fees, a key with no visible input) are a notification.
   const handleSubmit = async (enrollmentData: Record<string, unknown>) => {
+    setSaving(true);
     try {
+      const enrollment = withBillDefault(enrollmentData);
       if (studentId) {
-        const payload = { studentId: studentId, ...enrollmentData };
+        const payload = { studentId: studentId, ...enrollment };
         await dataProvider.create("enrollments", { data: payload });
       } else if (studentData) {
-        const payload = { ...studentData, enrollment: enrollmentData };
+        const payload = { ...studentData, enrollment };
         await dataProvider.create("students", { data: payload });
       }
       notify("Estudiante matriculado exitosamente", { type: "success" });
       redirect("list", "students");
     } catch (error) {
       const errors = fieldErrors(error);
-      if (errors) return errors;
-      notify(
-        serverErrorMessage(error, "No se pudo matricular al estudiante."),
-        { type: "error" },
-      );
+      const { onFields, elsewhere } = errors
+        ? splitFieldErrors(
+            errors,
+            (field) =>
+              !NOT_SHOWN.has(field) && enrollmentData[field] !== undefined,
+          )
+        : { onFields: {}, elsewhere: "" };
+      if (!errors || elsewhere) {
+        notify(
+          elsewhere ||
+            serverErrorMessage(error, "No se pudo matricular al estudiante."),
+          { type: "error" },
+        );
+      }
+      if (Object.keys(onFields).length > 0) return onFields;
+    } finally {
+      setSaving(false);
     }
   };
 
   return (
     <Dialog
       open={open}
-      onClose={onClose}
+      onClose={saving ? undefined : onClose}
       fullWidth
       maxWidth="md"
       // The <form> sits between the paper and its parts; making it the flex
@@ -102,8 +109,17 @@ export const EnrollDialog = ({
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={onClose}>Cancelar</Button>
-          <EnrollSubmitButton />
+          <Button onClick={onClose} disabled={saving}>
+            Cancelar
+          </Button>
+          <Button
+            variant="contained"
+            color="success"
+            type="submit"
+            disabled={saving}
+          >
+            {saving ? "Matriculando…" : "Matricular"}
+          </Button>
         </DialogActions>
       </Form>
     </Dialog>

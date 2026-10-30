@@ -75,6 +75,3 @@ export interface EnrollmentPreview {
   charges: EnrollmentPreviewCharge[];
   warnings: EnrollmentWarning[];
 }
-
-/** Grace on the matrícula and cuota de ingreso, in days. */
-export const GRACE_DAYS_MAX = 2;

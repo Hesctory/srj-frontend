@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { Form, HttpError } from "react-admin";
+import { Form, HttpError, Notification } from "react-admin";
 import { renderWithAdmin } from "@/test/render-with-admin";
 import type {
   EnrollmentPreview,
@@ -88,12 +88,15 @@ type Provider = ReturnType<typeof makeDataProvider>;
 
 const renderDialog = (dataProvider: Provider) =>
   renderWithAdmin(
-    <EnrollDialog
-      open
-      onClose={() => undefined}
-      studentData={null}
-      studentId={24}
-    />,
+    <>
+      <EnrollDialog
+        open
+        onClose={() => undefined}
+        studentData={null}
+        studentId={24}
+      />
+      <Notification />
+    </>,
     { dataProvider },
   );
 
@@ -343,6 +346,58 @@ describe(
       expect(
         await screen.findByText("Los días de gracia deben estar entre 0 y 2."),
       ).toBeInTheDocument();
+    });
+
+    it("tells about a 422 on a field the form does not show", async () => {
+      const user = userEvent.setup();
+      const dataProvider = makeDataProvider();
+      dataProvider.create.mockRejectedValueOnce(
+        new HttpError("Unprocessable Entity", 422, {
+          errors: { studentId: "El estudiante no existe." },
+        }),
+      );
+      renderDialog(dataProvider);
+
+      await choosePlacement(user, "2027");
+      await user.click(screen.getByRole("button", { name: "Matricular" }));
+
+      expect(
+        await screen.findByText("El estudiante no existe."),
+      ).toBeInTheDocument();
+    });
+
+    it("sends the create the same first-month value the preview used", async () => {
+      const user = userEvent.setup();
+      const dataProvider = makeDataProvider();
+      renderDialog(dataProvider);
+
+      await choosePlacement(user, "2027");
+      await user.click(screen.getByRole("button", { name: "Matricular" }));
+
+      await waitFor(() => expect(dataProvider.create).toHaveBeenCalled());
+      const [, { data }] = dataProvider.create.mock.calls[0] as unknown as [
+        string,
+        { data: Record<string, unknown> },
+      ];
+      expect(data.billEnrollmentMonth).toBe(
+        lastPreview(dataProvider).billEnrollmentMonth,
+      );
+      expect(data.billEnrollmentMonth).toBe(true);
+    });
+
+    it("locks Matricular and Cancelar while the enrollment is saved", async () => {
+      const user = userEvent.setup();
+      const dataProvider = makeDataProvider();
+      dataProvider.create.mockReturnValueOnce(new Promise(() => undefined));
+      renderDialog(dataProvider);
+
+      await choosePlacement(user, "2027");
+      await user.click(screen.getByRole("button", { name: "Matricular" }));
+
+      expect(
+        await screen.findByRole("button", { name: "Matriculando…" }),
+      ).toBeDisabled();
+      expect(screen.getByRole("button", { name: "Cancelar" })).toBeDisabled();
     });
   },
 );

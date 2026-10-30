@@ -35,10 +35,13 @@ import LocationFormSelector from "@/shared/components/location-form-selector";
 import SecondLanguagesFormSelector from "@/features/students/components/second-languages-form-selector";
 import MultipleFamiliarsForm from "@/features/students/components/multiple-familiars-form";
 import EnrollmentFormInputs from "@/features/students/components/enrollment-form-inputs";
-import { serverErrorMessage } from "@/features/students/hooks/use-enrollment-preview";
+import { withBillDefault } from "@/features/students/hooks/use-enrollment-preview";
+import { serverErrorMessage } from "@/features/students/utils/server-errors";
 
 const ConfirmCreateStudentButton = () => {
   const [open, setOpen] = useState(false);
+  // A second click while the first is saving would create a second student.
+  const [saving, setSaving] = useState(false);
   const { trigger, getValues } = useFormContext();
   const dataProvider = useDataProvider();
   const notify = useNotify();
@@ -51,8 +54,12 @@ const ConfirmCreateStudentButton = () => {
   };
 
   const handleConfirm = async () => {
+    setSaving(true);
     try {
-      await dataProvider.create("students", { data: getValues() });
+      const values = getValues();
+      await dataProvider.create("students", {
+        data: { ...values, enrollment: withBillDefault(values.enrollment) },
+      });
       notify("Estudiante creado exitosamente", { type: "success" });
       redirect("list", "students");
     } catch (error) {
@@ -62,6 +69,7 @@ const ConfirmCreateStudentButton = () => {
         type: "error",
       });
     } finally {
+      setSaving(false);
       setOpen(false);
     }
   };
@@ -80,7 +88,7 @@ const ConfirmCreateStudentButton = () => {
       >
         <SchoolIcon />
       </Button>
-      <Dialog open={open} onClose={() => setOpen(false)}>
+      <Dialog open={open} onClose={saving ? undefined : () => setOpen(false)}>
         <DialogTitle>Confirmar creación</DialogTitle>
         <DialogContent>
           <Typography>
@@ -88,13 +96,16 @@ const ConfirmCreateStudentButton = () => {
           </Typography>
         </DialogContent>
         <DialogActions>
-          <MuiButton onClick={() => setOpen(false)}>Cancelar</MuiButton>
+          <MuiButton onClick={() => setOpen(false)} disabled={saving}>
+            Cancelar
+          </MuiButton>
           <MuiButton
             variant="contained"
             color="success"
             onClick={handleConfirm}
+            disabled={saving}
           >
-            Confirmar
+            {saving ? "Creando…" : "Confirmar"}
           </MuiButton>
         </DialogActions>
       </Dialog>

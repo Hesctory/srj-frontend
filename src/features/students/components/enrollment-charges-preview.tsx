@@ -7,10 +7,8 @@ import {
   Typography,
 } from "@mui/material";
 import ReceiptLongOutlinedIcon from "@mui/icons-material/ReceiptLongOutlined";
-import {
-  serverErrorMessage,
-  useEnrollmentPreview,
-} from "@/features/students/hooks/use-enrollment-preview";
+import { useEnrollmentPreview } from "@/features/students/hooks/use-enrollment-preview";
+import { serverErrorMessage } from "@/features/students/utils/server-errors";
 import type { EnrollmentPreviewCharge } from "@/types/enrollment";
 import { formatIsoDate, formatMoney } from "@/utils/money";
 
@@ -114,7 +112,7 @@ const EnrollmentChargesPreview = ({
             <AlertTitle>Revisa antes de matricular</AlertTitle>
             <Box component="ul" sx={{ m: 0, pl: 2 }}>
               {data.warnings.map((warning, index) => (
-                <li key={warning.code ?? index}>{warning.message}</li>
+                <li key={index}>{warning.message}</li>
               ))}
             </Box>
             <Typography variant="caption" component="p" sx={{ mt: 0.5 }}>
@@ -173,6 +171,9 @@ const EnrollmentChargesPreview = ({
         borderRadius: 1,
         p: { xs: 0, sm: 2 },
         width: "100%",
+        // A charge and its amount read as one line only so far apart: on a
+        // wide column the list keeps a receipt's width.
+        maxWidth: 640,
       }}
     >
       <Typography sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>

@@ -1,5 +1,5 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { HttpError, useDataProvider, useGetOne } from "react-admin";
+import { useDataProvider, useGetOne } from "react-admin";
 import { useWatch } from "react-hook-form";
 import type { AppDataProvider } from "@/app/data-provider";
 import type { PreviewEnrollment } from "@/types/enrollment";
@@ -37,6 +37,18 @@ export const enrollmentMonthChoice = (
   const [year, month] = today.split("-").map(Number);
   return year === schoolYear && month >= FIRST_BILLED_MONTH ? month : null;
 };
+
+/**
+ * The enrollment as the create sends it: with no first-month question to
+ * answer, `billEnrollmentMonth` is the API's default `true`, exactly what the
+ * preview sent, instead of being left out.
+ */
+export const withBillDefault = <T extends Record<string, unknown>>(
+  enrollment: T,
+) => ({
+  ...enrollment,
+  billEnrollmentMonth: enrollment.billEnrollmentMonth ?? true,
+});
 
 const toId = (value: unknown) =>
   value === null || value === undefined || value === "" ? null : Number(value);
@@ -78,23 +90,6 @@ export const useEnrollmentChoices = (base: string) => {
   };
 };
 
-/** A 422's `{ errors: { field: message } }`, or null for any other failure. */
-export const fieldErrors = (error: unknown): Record<string, string> | null =>
-  error instanceof HttpError && error.status === 422
-    ? ((error.body as { errors?: Record<string, string> })?.errors ?? null)
-    : null;
-
-/** The server's words for a refused request, shown as they come. */
-export const serverErrorMessage = (
-  error: unknown,
-  fallback: string,
-): string => {
-  const errors = fieldErrors(error);
-  if (errors) return Object.values(errors).join(" ");
-  if (error instanceof HttpError && error.message) return error.message;
-  return fallback;
-};
-
 /**
  * The charges the enrollment would raise today, asked again whenever a choice
  * changes. Nothing is asked until every choice is made: a half-filled form
@@ -117,6 +112,8 @@ export const useEnrollmentPreview = (
         ...ids,
         studentId,
         // No choice to make: the server bills every month from March anyway.
+        // The create sends the same default (`withBillDefault`), so the two
+        // requests stay identical, as R10 needs.
         billEnrollmentMonth: billEnrollmentMonth ?? true,
       } as PreviewEnrollment)
     : null;
