@@ -35,7 +35,7 @@ export const fullRowField: SxProps<Theme> = { gridColumn: "1 / -1" };
 export interface FormGridProps extends Omit<BoxProps, "display"> {
   /**
    * Switch from viewport breakpoints to a container-driven track size:
-   * `repeat(auto-fit, minmax(<minColumnWidth>px, 1fr))`. Use it for grids nested
+   * `repeat(auto-fit, minmax(min(<minColumnWidth>px, 100%), 1fr))`. Use it for grids nested
    * inside a panel that is itself only part of the row (the enrollment panel),
    * where the viewport says "xl" but the available width is half of that.
    */
@@ -54,8 +54,10 @@ export const FormGrid = ({ minColumnWidth, sx, ...rest }: FormGridProps) => (
         // Small: RA already reserves a helper-text line under every input for
         // validation messages, which is most of the visual row spacing.
         rowGap: 0.5,
+        // `min(…, 100%)`: a container narrower than one track (a phone) gets
+        // one full-width column instead of a track that sticks out of it.
         gridTemplateColumns: minColumnWidth
-          ? `repeat(auto-fit, minmax(${minColumnWidth}px, 1fr))`
+          ? `repeat(auto-fit, minmax(min(${minColumnWidth}px, 100%), 1fr))`
           : {
               xs: "1fr",
               sm: "repeat(2, 1fr)",

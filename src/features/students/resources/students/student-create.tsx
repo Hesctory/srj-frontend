@@ -14,14 +14,6 @@ import {
   useRedirect,
 } from "react-admin";
 import { useFormContext } from "react-hook-form";
-import {
-  Button as MuiButton,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  Typography,
-} from "@mui/material";
 import SchoolIcon from "@mui/icons-material/School";
 import CRUDToolBar from "@/app/layout/crud-toolbar";
 import ScrollableTabbedForm from "@/shared/components/scrollable-tabbed-form";
@@ -33,33 +25,80 @@ import {
 } from "@/shared/components/form-grid";
 import LocationFormSelector from "@/shared/components/location-form-selector";
 import SecondLanguagesFormSelector from "@/features/students/components/second-languages-form-selector";
-import MultipleFamiliarsForm from "@/features/students/components/multiple-familiars-form";
+import MultipleFamiliarsForm, {
+  FamiliarsTabLabel,
+  familiarsProblem,
+} from "@/features/students/components/multiple-familiars-form";
 import EnrollmentFormInputs from "@/features/students/components/enrollment-form-inputs";
+import EnrollmentConfirmDialog from "@/features/students/components/enrollment-confirm-dialog";
+import {
+  UNANSWERED_MONTH_MESSAGE,
+  previewBodyOf,
+  useEnrollmentConfirmation,
+  withBillDefault,
+} from "@/features/students/hooks/use-enrollment-preview";
+import { serverErrorMessage } from "@/features/students/utils/server-errors";
 
-const ConfirmCreateStudentButton = () => {
-  const [open, setOpen] = useState(false);
+export const ConfirmCreateStudentButton = () => {
+  // A second click while the first is saving would create a second student.
+  const [saving, setSaving] = useState(false);
   const { trigger, getValues } = useFormContext();
   const dataProvider = useDataProvider();
   const notify = useNotify();
   const redirect = useRedirect();
+  const confirmation = useEnrollmentConfirmation();
 
   const handleClick = async () => {
     const isValid = await trigger();
-    if (!isValid) return;
-    setOpen(true);
-  };
+    if (!isValid) {
+      // Fields on another tab are out of sight, so say what stops it.
+      const problem = familiarsProblem(getValues("familiars"));
+      notify(problem ?? "ra.message.invalid_form", {
+        type: "error",
+        messageArgs: { _: problem ?? undefined },
+      });
+      return;
+    }
 
-  const handleConfirm = async () => {
+    const values = getValues();
+    // No student yet: eligibility goes through the familiars typed so far.
+    const { go, unanswered, noQuestion } = await confirmation.ask(
+      previewBodyOf(values.enrollment, null, values.familiars),
+      typeof values.enrollment?.billEnrollmentMonth === "boolean",
+    );
+    if (unanswered) {
+      notify(UNANSWERED_MONTH_MESSAGE, {
+        type: "error",
+        messageArgs: { _: UNANSWERED_MONTH_MESSAGE },
+      });
+      return;
+    }
+    if (!go) return;
+
+    setSaving(true);
     try {
-      await dataProvider.create("students", { data: getValues() });
-      notify("Estudiante creado exitosamente", { type: "success" });
+      await dataProvider.create("students", {
+        data: {
+          ...values,
+          enrollment: withBillDefault(values.enrollment, noQuestion),
+        },
+      });
+      notify("Estudiante creado exitosamente", {
+        type: "success",
+        messageArgs: { _: "Estudiante creado exitosamente" },
+      });
       redirect("list", "students");
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Error desconocido";
-      notify(`Error al crear estudiante: ${message}`, { type: "error" });
+      // A 422 names its fields ("Los días de gracia deben estar entre 0 y 2.");
+      // the message alone says what to fix, so it is shown as it comes.
+      const message = serverErrorMessage(
+        error,
+        "No se pudo crear el estudiante.",
+      );
+      notify(message, { type: "error", messageArgs: { _: message } });
     } finally {
-      setOpen(false);
+      setSaving(false);
+      confirmation.close();
     }
   };
 
@@ -77,24 +116,11 @@ const ConfirmCreateStudentButton = () => {
       >
         <SchoolIcon />
       </Button>
-      <Dialog open={open} onClose={() => setOpen(false)}>
-        <DialogTitle>Confirmar creación</DialogTitle>
-        <DialogContent>
-          <Typography>
-            ¿Confirmar la creación del estudiante y su matrícula?
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <MuiButton onClick={() => setOpen(false)}>Cancelar</MuiButton>
-          <MuiButton
-            variant="contained"
-            color="success"
-            onClick={handleConfirm}
-          >
-            Confirmar
-          </MuiButton>
-        </DialogActions>
-      </Dialog>
+      <EnrollmentConfirmDialog
+        {...confirmation.dialog}
+        saving={saving}
+        question="¿Confirmar la creación del estudiante y su matrícula?"
+      />
     </>
   );
 };
@@ -237,7 +263,7 @@ export const StudentCreate = () => {
           </FormGrid>
         </ScrollableTabbedForm.Tab>
 
-        <ScrollableTabbedForm.Tab label="Apoderados">
+        <ScrollableTabbedForm.Tab label={<FamiliarsTabLabel />}>
           <MultipleFamiliarsForm />
         </ScrollableTabbedForm.Tab>
 

@@ -13,6 +13,7 @@ import GradeIcon from "@mui/icons-material/Grade";
 import ViewModuleIcon from "@mui/icons-material/ViewModule";
 import MeetingRoomIcon from "@mui/icons-material/MeetingRoom";
 import AttachMoneyIcon from "@mui/icons-material/AttachMoney";
+import LocalOfferIcon from "@mui/icons-material/LocalOffer";
 import SettingsIcon from "@mui/icons-material/Settings";
 import CorporateFareIcon from "@mui/icons-material/CorporateFare";
 import SavingsIcon from "@mui/icons-material/Savings";
@@ -112,6 +113,11 @@ export const menu: MenuEntry[] = [
       },
       { name: "Aulas", path: "/classrooms", icon: <MeetingRoomIcon /> },
       { name: "Tarifas", path: "/school-fees", icon: <AttachMoneyIcon /> },
+      {
+        name: "Conceptos de cobro",
+        path: "/school-fee-concepts",
+        icon: <LocalOfferIcon />,
+      },
     ],
   },
   {

@@ -304,4 +304,52 @@ describe("dataProvider", () => {
       schoolYearId: 3,
     });
   });
+
+  it("previews an enrollment's charges with the grace days and the first-month choice", async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({ charges: [], warnings: [] }),
+    );
+    const body = {
+      studentId: null,
+      schoolYearId: 5,
+      levelId: 1,
+      gradeId: 1,
+      shiftId: 1,
+      schoolFeeConceptId: 2,
+      graceDays: 2,
+      billEnrollmentMonth: false,
+      familiarDocuments: [{ documentTypeId: 1, idDocumentNumber: "90000001" }],
+    };
+
+    await dataProvider.previewEnrollment(body);
+
+    const request = lastRequest();
+    expect(request.method).toBe("POST");
+    expect(request.url.href).toBe(`${API_URL}/enrollments/preview`);
+    expect(request.body).toEqual(body);
+  });
+
+  it("maps fee concepts to plain /school-fee-concepts CRUD", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ id: 2 }));
+
+    await dataProvider.update("school-fee-concepts", {
+      id: 2,
+      data: {
+        name: "Dscto hermano 1",
+        enrollmentDiscount: 20,
+        tuitionDiscount: 20,
+        discountCondition: "SIBLING",
+      },
+      previousData: { id: 2 },
+    });
+
+    const request = lastRequest();
+    expect(request.method).toBe("PUT");
+    expect(request.url.href).toBe(`${API_URL}/school-fee-concepts/2`);
+    expect(request.body).toMatchObject({
+      enrollmentDiscount: 20,
+      tuitionDiscount: 20,
+      discountCondition: "SIBLING",
+    });
+  });
 });

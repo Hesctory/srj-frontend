@@ -141,7 +141,10 @@ The body every `POST` returns alongside `201 Created`: the id of the row just wr
 ```jsonc
 {
   "id": 1,
-  "name": "…"   // string | null
+  "name": "…",                     // string | null
+  "enrollmentDiscount": 352.8,     // Soles off the matrícula for an enrollment with this concept.
+  "tuitionDiscount": 352.8,        // Soles off each pensión for an enrollment with this concept.
+  "discountCondition": "SIBLING"   // "SIBLING" | "STAFF_CHILD" — string | null — What the discount assumes about the student, checked only to warn: `SIBLING`, `STAFF_CHILD`, or null.
 }
 ```
 
@@ -149,7 +152,10 @@ The body every `POST` returns alongside `201 Created`: the id of the row just wr
 
 ```jsonc
 {
-  "name": "…"   // string | null
+  "name": "…",                     // string | null
+  "enrollmentDiscount": 352.8,     // Soles off the matrícula, 0–999.99.
+  "tuitionDiscount": 352.8,        // Soles off each pensión, 0–999.99.
+  "discountCondition": "SIBLING"   // "SIBLING" | "STAFF_CHILD" — string | null — `SIBLING`, `STAFF_CHILD`, or null.
 }
 ```
 
@@ -590,7 +596,10 @@ The prices for one year, level, shift and fee concept.
 
 ```jsonc
 {
-  "name": "…"   // string | null
+  "name": "…",                     // string | null
+  "enrollmentDiscount": 352.8,     // Soles off the matrícula, 0–999.99.
+  "tuitionDiscount": 352.8,        // Soles off each pensión, 0–999.99.
+  "discountCondition": "SIBLING"   // "SIBLING" | "STAFF_CHILD" — string | null — `SIBLING`, `STAFF_CHILD`, or null.
 }
 ```
 
@@ -1127,7 +1136,10 @@ The prices for one year, level, shift and fee concept.
 
 ```jsonc
 {
-  "name": "…"   // string | null
+  "name": "…",                     // string | null
+  "enrollmentDiscount": 352.8,     // Soles off the matrícula, 0–999.99.
+  "tuitionDiscount": 352.8,        // Soles off each pensión, 0–999.99.
+  "discountCondition": "SIBLING"   // "SIBLING" | "STAFF_CHILD" — string | null — `SIBLING`, `STAFF_CHILD`, or null.
 }
 ```
 

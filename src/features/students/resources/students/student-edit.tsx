@@ -18,7 +18,9 @@ import {
 } from "@/shared/components/form-grid";
 import LocationFormSelector from "@/shared/components/location-form-selector";
 import SecondLanguagesFormSelector from "@/features/students/components/second-languages-form-selector";
-import MultipleFamiliarsForm from "@/features/students/components/multiple-familiars-form";
+import MultipleFamiliarsForm, {
+  FamiliarsTabLabel,
+} from "@/features/students/components/multiple-familiars-form";
 
 export const StudentEdit = () => {
   return (
@@ -151,7 +153,7 @@ export const StudentEdit = () => {
           </FormGrid>
         </ScrollableTabbedForm.Tab>
 
-        <ScrollableTabbedForm.Tab label="Apoderados">
+        <ScrollableTabbedForm.Tab label={<FamiliarsTabLabel />}>
           <MultipleFamiliarsForm />
         </ScrollableTabbedForm.Tab>
       </ScrollableTabbedForm>

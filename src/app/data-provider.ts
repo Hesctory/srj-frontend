@@ -27,6 +27,7 @@ import type {
   PaymentPreviewRequest,
   PaymentPreviewResponse,
 } from "@/types/payment";
+import type { EnrollmentPreview, PreviewEnrollment } from "@/types/enrollment";
 
 // VITE_API_URL (in .env.local) points the app at another backend, e.g. an
 // agent's own instance running next to yours on a different port.
@@ -250,10 +251,18 @@ const enrollmentPayments = {
     }),
 };
 
+// --- Enrollments ------------------------------------------------------------
+// The charges an enrollment would raise, before it is created. Writes nothing.
+const enrollments = {
+  previewEnrollment: (body: PreviewEnrollment) =>
+    sendJson<EnrollmentPreview>("POST", "/enrollments/preview", body),
+};
+
 export type AppDataProvider = DataProvider & {
   exportReport: typeof exportReport;
 } & typeof catalog &
-  typeof enrollmentPayments;
+  typeof enrollmentPayments &
+  typeof enrollments;
 
 // --- App extensions decorator -----------------------------------------------
 // Wraps a base DataProvider with the app's cross-cutting behaviour: report
@@ -264,6 +273,7 @@ const withAppExtensions = (base: DataProvider): AppDataProvider => ({
   exportReport,
   ...catalog,
   ...enrollmentPayments,
+  ...enrollments,
   update: async (resource, params) => {
     if (resource === "products") {
       const { json } = await httpClient(

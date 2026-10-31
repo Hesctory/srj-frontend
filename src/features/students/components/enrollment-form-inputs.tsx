@@ -4,12 +4,19 @@ import BadgeOutlinedIcon from "@mui/icons-material/BadgeOutlined";
 import { FormGrid } from "@/shared/components/form-grid";
 import AcademicFormSelector from "./academic-form-selector";
 import EnrollmentDocumentsSection from "./enrollment-documents-section";
+import EnrollmentTermsInputs from "./enrollment-terms-inputs";
+import EnrollmentChargesPreview from "./enrollment-charges-preview";
 
 interface EnrollmentFormInputsProps {
   sourcePrefix?: string;
+  /** The student being enrolled; null while the new-student form fills in. */
+  studentId?: number | null;
 }
 
-const EnrollmentFormInputs = ({ sourcePrefix }: EnrollmentFormInputsProps) => {
+const EnrollmentFormInputs = ({
+  sourcePrefix,
+  studentId = null,
+}: EnrollmentFormInputsProps) => {
   const base = sourcePrefix ? `${sourcePrefix}.` : "";
 
   return (
@@ -17,7 +24,7 @@ const EnrollmentFormInputs = ({ sourcePrefix }: EnrollmentFormInputsProps) => {
       display="flex"
       flexDirection={{ xs: "column", sm: "row" }}
       gap={2}
-      alignItems="stretch"
+      alignItems="flex-start"
       // TabbedForm.Tab lays its children out as a flex column that does not
       // stretch them, so without this the two panels collapse to their content
       // width and huddle on the left of a wide screen.
@@ -26,6 +33,7 @@ const EnrollmentFormInputs = ({ sourcePrefix }: EnrollmentFormInputsProps) => {
       <Box
         flex={1}
         width="100%"
+        minWidth={0}
         display="flex"
         flexDirection="column"
         gap={1}
@@ -57,12 +65,18 @@ const EnrollmentFormInputs = ({ sourcePrefix }: EnrollmentFormInputsProps) => {
             reference="school-fee-concepts"
           >
             <SelectInput
+              optionText="name"
               label="Concepto de Cobro"
               fullWidth
               isRequired
               validate={required()}
             />
           </ReferenceInput>
+          {/* Ahead of the free-text field: they decide the charges. */}
+          <EnrollmentTermsInputs
+            sourcePrefix={sourcePrefix}
+            studentId={studentId}
+          />
           <TextInput
             source={`${base}previousSchool`}
             label="Colegio Anterior"
@@ -70,7 +84,23 @@ const EnrollmentFormInputs = ({ sourcePrefix }: EnrollmentFormInputsProps) => {
           />
         </FormGrid>
       </Box>
-      <Box flex={1} width="100%">
+      {/* The charges first, beside the choices that produce them, so a
+          change shows its price without scrolling; the documents after. */}
+      <Box
+        flex={1}
+        width="100%"
+        minWidth={0}
+        display="flex"
+        flexDirection="column"
+        gap={2}
+        // Both panels hold short lines: on a wide screen they keep a
+        // receipt's width and line up, instead of a mostly empty frame.
+        sx={{ "& > *": { maxWidth: 640 } }}
+      >
+        <EnrollmentChargesPreview
+          sourcePrefix={sourcePrefix}
+          studentId={studentId}
+        />
         <EnrollmentDocumentsSection sourcePrefix={sourcePrefix} />
       </Box>
     </Box>

@@ -111,11 +111,9 @@ export const DebtsPage = () => {
    */
   const payCharge = (charge: EnrollmentCharge) => {
     if (!isPayable(charge)) return;
-    // No `hint`: the row they just clicked already showed the due date and the
-    // days overdue. Quick pay keeps its hint because the allocation order it
-    // describes is not visible anywhere else.
     openPay({
       label: chargeLabel(charge),
+      hint: `Vence: ${formatIsoDate(charge.dueDate)}`,
       outstanding: outstandingOf(charge),
       obligationIds: [charge.obligationId as number],
     });
