@@ -15,6 +15,8 @@ interface AcademicFormSelectorProps {
   /** Preselect the current calendar year's school-year when the field is empty,
    *  mirroring the list filters' default. */
   defaultCurrentYear?: boolean;
+  /** The year is shown but fixed: an enrollment never changes school year. */
+  lockYear?: boolean;
 }
 
 const AcademicFormSelector = ({
@@ -22,6 +24,7 @@ const AcademicFormSelector = ({
   required: isFieldRequired = true,
   requireYear = false,
   defaultCurrentYear = false,
+  lockYear = false,
 }: AcademicFormSelectorProps) => {
   const base = sourcePrefix ? `${sourcePrefix}.` : "";
   const { schoolYearId, levelId, gradeId, shiftId, clearFields } =
@@ -69,6 +72,7 @@ const AcademicFormSelector = ({
         <SelectInput
           label="Año Escolar"
           optionText="year"
+          readOnly={lockYear}
           onChange={() => clearFields(FORM_DOWNSTREAM.schoolYearId)}
           {...reqProps(true)}
         />

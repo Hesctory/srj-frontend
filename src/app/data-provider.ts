@@ -27,7 +27,13 @@ import type {
   PaymentPreviewRequest,
   PaymentPreviewResponse,
 } from "@/types/payment";
-import type { EnrollmentPreview, PreviewEnrollment } from "@/types/enrollment";
+import type {
+  EnrollmentChangePreview,
+  EnrollmentChangePreviewRequest,
+  EnrollmentPreview,
+  EnrollmentWithdrawalPreview,
+  PreviewEnrollment,
+} from "@/types/enrollment";
 
 // VITE_API_URL (in .env.local) points the app at another backend, e.g. an
 // agent's own instance running next to yours on a different port.
@@ -252,10 +258,29 @@ const enrollmentPayments = {
 };
 
 // --- Enrollments ------------------------------------------------------------
-// The charges an enrollment would raise, before it is created. Writes nothing.
+// What an enrollment, a change of price or a withdrawal would do. All three
+// write nothing.
 const enrollments = {
   previewEnrollment: (body: PreviewEnrollment) =>
     sendJson<EnrollmentPreview>("POST", "/enrollments/preview", body),
+  previewEnrollmentChange: (
+    enrollmentId: Identifier,
+    body: EnrollmentChangePreviewRequest,
+  ) =>
+    sendJson<EnrollmentChangePreview>(
+      "POST",
+      `/enrollments/${enrollmentId}/change-preview`,
+      body,
+    ),
+  previewEnrollmentWithdrawal: (
+    enrollmentId: Identifier,
+    withdrawalDate: string,
+  ) =>
+    sendJson<EnrollmentWithdrawalPreview>(
+      "POST",
+      `/enrollments/${enrollmentId}/withdrawal-preview`,
+      { withdrawalDate },
+    ),
 };
 
 export type AppDataProvider = DataProvider & {

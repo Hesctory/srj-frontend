@@ -136,12 +136,85 @@ The charges an enrollment would raise today, and what staff should check first.
   "shiftId": 1,
   "sectionId": 1,
   "schoolFeeConceptId": 1,
-  "previousSchool": "…",  // string | null
-  "stateName": "…",       // string | null
+  "previousSchool": "…",           // string | null
+  "stateName": "…",                // string | null
   "documents": [
     {
       "requiredDocumentId": 1,
       "submitted": true
+    }
+  ],
+  "repriceFromMonth": 1,           // number | null — The month (3–12) a new price starts from.
+  "withdrawalDate": "2026-08-19",  // string | null — YYYY-MM-DD — The day the student left.
+  "graceDays": 1,                  // Days of grace, 0–2, on the charges a reactivation raises.
+  "billEnrollmentMonth": true      // Whether a reactivation bills the pensión of the month it happens in.
+}
+```
+
+## `EnrollmentChangePreviewRequest`
+
+```jsonc
+{
+  "levelId": 1,
+  "shiftId": 1,
+  "schoolFeeConceptId": 1,
+  "repriceFromMonth": 1
+}
+```
+
+## `EnrollmentChangePreview`
+
+```jsonc
+{
+  "lines": [
+    {
+      "month": 1,
+      "description": "…",     // string | null
+      "currentNet": 352.8,
+      "newGross": 352.8,
+      "newDiscount": 352.8,
+      "newNet": 352.8,
+      "outcome": "REPRICED"   // "REPRICED" | "UNCHANGED" | "PAID" | "BEFORE_FROM_MONTH" — string | null
+    }
+  ]
+}
+```
+
+Every live pensión, and what the proposed change does to it.
+
+## `EnrollmentWithdrawalPreviewRequest`
+
+```jsonc
+{
+  "withdrawalDate": "2026-08-19"   // YYYY-MM-DD
+}
+```
+
+## `EnrollmentWithdrawalPreview`
+
+```jsonc
+{
+  "voided": [
+    {
+      "month": 1,
+      "description": "…",  // string | null
+      "net": 352.8
+    }
+  ],
+  "keptPaid": [
+    {
+      "month": 1,
+      "description": "…",  // string | null
+      "net": 352.8
+    }
+  ],
+  "siblings": [
+    {
+      "enrollmentId": 1,
+      "studentId": 1,
+      "fullName": "…",        // string | null
+      "conceptName": "…",     // string | null
+      "repriceFromMonth": 1   // number | null — The first billable month starting after the withdrawal; null if none.
     }
   ]
 }
@@ -280,14 +353,18 @@ The charges an enrollment would raise today, and what staff should check first.
   "shiftId": 1,
   "sectionId": 1,
   "schoolFeeConceptId": 1,
-  "previousSchool": "…",  // string | null
-  "stateName": "…",       // string | null
+  "previousSchool": "…",           // string | null
+  "stateName": "…",                // string | null
   "documents": [
     {
       "requiredDocumentId": 1,
       "submitted": true
     }
-  ]
+  ],
+  "repriceFromMonth": 1,           // number | null — The month (3–12) a new price starts from.
+  "withdrawalDate": "2026-08-19",  // string | null — YYYY-MM-DD — The day the student left.
+  "graceDays": 1,                  // Days of grace, 0–2, on the charges a reactivation raises.
+  "billEnrollmentMonth": true      // Whether a reactivation bills the pensión of the month it happens in.
 }
 ```
 
@@ -321,7 +398,60 @@ The charges an enrollment would raise today, and what staff should check first.
 
 ---
 
-### 7. `GET /api/enrollments/student/:studentId/latest` — Get
+### 7. `POST /api/enrollments/:id/change-preview` — Change Preview
+
+**Request body**
+
+```jsonc
+{
+  "levelId": 1,
+  "shiftId": 1,
+  "schoolFeeConceptId": 1,
+  "repriceFromMonth": 1
+}
+```
+
+**Response** `200` — body is `EnrollmentChangePreview`
+
+**Errors**
+
+| Status | When |
+| --- | --- |
+| `400` | Malformed input, or a business rule rejected the request. |
+| `401` | No token, or a token that is expired or invalid. |
+| `403` | Authenticated, but lacking the required permission. |
+| `404` | No such resource. |
+| `409` | The resource is in a state that forbids this operation. |
+| `422` | Field-level validation failed. |
+
+---
+
+### 8. `POST /api/enrollments/:id/withdrawal-preview` — Withdrawal Preview
+
+**Request body**
+
+```jsonc
+{
+  "withdrawalDate": "2026-08-19"   // YYYY-MM-DD
+}
+```
+
+**Response** `200` — body is `EnrollmentWithdrawalPreview`
+
+**Errors**
+
+| Status | When |
+| --- | --- |
+| `400` | Malformed input, or a business rule rejected the request. |
+| `401` | No token, or a token that is expired or invalid. |
+| `403` | Authenticated, but lacking the required permission. |
+| `404` | No such resource. |
+| `409` | The resource is in a state that forbids this operation. |
+| `422` | Field-level validation failed. |
+
+---
+
+### 9. `GET /api/enrollments/student/:studentId/latest` — Get
 
 **Response** `200` — body is `Enrollment`
 

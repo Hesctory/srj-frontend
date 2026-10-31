@@ -3,6 +3,7 @@ import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Route, Routes } from "react-router-dom";
 import { renderWithAdmin } from "@/test/render-with-admin";
+import { totalsOf } from "@/features/cashier/tuition/utils/charges";
 import type { EnrollmentCharge } from "@/types/enrollment-charge";
 import { DebtsPage } from "./debts-page";
 
@@ -26,6 +27,7 @@ const settleable = (
   netAmount: 300,
   description,
   isFullyWaived: false,
+  isChargeVoided: false,
   isOverdue: false,
   daysOverdue: 0,
   isEffective: true,
@@ -60,10 +62,27 @@ const charges = [
   waived,
 ];
 
+// What cancelling, repricing or withdrawing leaves behind: the obligation's
+// stale balance must not read as a debt.
+const voided: EnrollmentCharge = {
+  ...settleable(5, 3, "Pensión Octubre - 2026", "2026-10-31"),
+  isChargeVoided: true,
+  statusIsTerminal: true,
+  effectiveStatusCode: "CANCELLED",
+  effectiveStatusName: "Cancelado",
+} as EnrollmentCharge;
+
+const makeGetList = (rows: EnrollmentCharge[]) =>
+  vi.fn(async (resource: string, _params?: unknown) =>
+    resource === "enrollment-charges"
+      ? { data: rows, total: rows.length }
+      : { data: [], total: 0 },
+  );
+
 const rowOf = (description: string) =>
   screen.getByText(description).closest(".MuiPaper-root") as HTMLElement;
 
-const renderPage = () =>
+const renderPage = (getList = makeGetList(charges)) =>
   renderWithAdmin(
     <Routes>
       <Route
@@ -76,11 +95,7 @@ const renderPage = () =>
         getOne: vi.fn(async (resource: string) => ({
           data: { id: 4, resource },
         })),
-        getList: vi.fn(async (resource: string) =>
-          resource === "enrollment-charges"
-            ? { data: charges, total: charges.length }
-            : { data: [], total: 0 },
-        ),
+        getList,
       },
     },
   );
@@ -127,5 +142,90 @@ describe("DebtsPage — due dates", { timeout: 30_000 }, () => {
     );
 
     expect(await screen.findByText("Vence: 01/11/2026")).toBeInTheDocument();
+  });
+});
+
+describe("DebtsPage — voided charges", { timeout: 30_000 }, () => {
+  beforeEach(() => {
+    window.location.hash = "#/cashier/tuition/4/25/debts";
+  });
+
+  it("asks the API for them, since it leaves them out by default", async () => {
+    const getList = makeGetList([voided]);
+    renderPage(getList);
+
+    await screen.findByText("Pensión Octubre - 2026");
+
+    const params = getList.mock.calls.find(
+      ([resource]) => resource === "enrollment-charges",
+    )?.[1] as { filter: unknown };
+    expect(params.filter).toEqual({ enrollmentId: 25, includeVoided: true });
+  });
+
+  it("shows them as cancelled, with nothing to pay", async () => {
+    renderPage(makeGetList([voided]));
+
+    await screen.findByText("Pensión Octubre - 2026");
+
+    const row = within(rowOf("Pensión Octubre - 2026"));
+    expect(row.getByText("Anulado")).toBeInTheDocument();
+    expect(row.queryByRole("button", { name: "Pagar" })).toBeNull();
+    expect(row.getByRole("button", { name: "Detalles" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Pago rápido" })).toBeDisabled();
+  });
+
+  it("leaves them out of the balance and of the balance filters", async () => {
+    const user = userEvent.setup();
+    renderPage(
+      makeGetList([
+        voided,
+        settleable(6, 3, "Pensión Octubre - 2026 nueva", "2026-10-31"),
+      ]),
+    );
+
+    await screen.findByText("Pensión Octubre - 2026");
+    expect(screen.getByRole("button", { name: "Pago rápido" })).toBeEnabled();
+
+    await user.click(screen.getByRole("button", { name: "Con saldo" }));
+    expect(screen.queryByText("Pensión Octubre - 2026")).toBeNull();
+    expect(
+      screen.getByText("Pensión Octubre - 2026 nueva"),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Sin saldo" }));
+    expect(screen.queryByText("Pensión Octubre - 2026")).toBeNull();
+  });
+
+  it("explains them in the details, with no overdue alert or balance", async () => {
+    const user = userEvent.setup();
+    renderPage(
+      makeGetList([
+        {
+          ...voided,
+          isOverdue: true,
+          daysOverdue: 12,
+          isEffective: false,
+        } as EnrollmentCharge,
+      ]),
+    );
+
+    await screen.findByText("Pensión Octubre - 2026");
+    await user.click(screen.getByRole("button", { name: "Detalles" }));
+
+    expect(await screen.findByText(/Este cargo se anuló/)).toBeInTheDocument();
+    expect(screen.queryByText(/Vencido hace/)).toBeNull();
+    expect(screen.queryByText("No vigente")).toBeNull();
+    expect(screen.queryByText("Vencimiento")).toBeNull();
+  });
+
+  it("does not count a voided charge in the totals", () => {
+    expect(totalsOf([voided])).toEqual({
+      charged: 0,
+      discount: 0,
+      paid: 0,
+      outstanding: 0,
+      overdueAmount: 0,
+      overdueCount: 0,
+    });
   });
 });

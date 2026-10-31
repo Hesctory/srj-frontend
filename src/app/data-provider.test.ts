@@ -329,6 +329,38 @@ describe("dataProvider", () => {
     expect(request.body).toEqual(body);
   });
 
+  it("previews a change of price on the enrollment being changed", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ lines: [] }));
+    const body = {
+      levelId: 1,
+      shiftId: 2,
+      schoolFeeConceptId: 3,
+      repriceFromMonth: 5,
+    };
+
+    await dataProvider.previewEnrollmentChange(25, body);
+
+    const request = lastRequest();
+    expect(request.method).toBe("POST");
+    expect(request.url.href).toBe(`${API_URL}/enrollments/25/change-preview`);
+    expect(request.body).toEqual(body);
+  });
+
+  it("previews a withdrawal with its date", async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({ voided: [], keptPaid: [], siblings: [] }),
+    );
+
+    await dataProvider.previewEnrollmentWithdrawal(25, "2027-05-01");
+
+    const request = lastRequest();
+    expect(request.method).toBe("POST");
+    expect(request.url.href).toBe(
+      `${API_URL}/enrollments/25/withdrawal-preview`,
+    );
+    expect(request.body).toEqual({ withdrawalDate: "2027-05-01" });
+  });
+
   it("maps fee concepts to plain /school-fee-concepts CRUD", async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse({ id: 2 }));
 
