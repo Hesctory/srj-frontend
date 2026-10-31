@@ -11,6 +11,7 @@ import {
 } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import { Form, Identifier } from "react-admin";
+import { useFormState } from "react-hook-form";
 import EnrollmentFormInputs from "./enrollment-form-inputs";
 import EnrollmentReactivateDialog, {
   type ReactivationTerms,
@@ -56,6 +57,17 @@ interface EnrollmentAccordionItemProps {
   ) => Promise<Record<string, string> | undefined>;
 }
 
+/** Annulling and withdrawing act on the saved enrollment, not on the form. */
+const UnsavedChangesHint = () => {
+  const { isDirty } = useFormState();
+  if (!isDirty) return null;
+  return (
+    <Typography variant="caption" color="text.secondary" sx={{ width: "100%" }}>
+      Los cambios sin guardar no se aplican al anular ni al retirar.
+    </Typography>
+  );
+};
+
 export const EnrollmentAccordionItem = ({
   enrollment,
   expanded,
@@ -82,6 +94,8 @@ export const EnrollmentAccordionItem = ({
 
   useEffect(() => {
     if (expanded) fetchDetail();
+    // A question left open must not greet them when the row is opened again.
+    else setPendingDelete(false);
   }, [expanded, fetchDetail]);
 
   const isActive = enrollment.state === ENROLLMENT_STATE.active;
@@ -167,7 +181,13 @@ export const EnrollmentAccordionItem = ({
           </Box>
         ) : detail ? (
           <>
-            <Form defaultValues={detail} onSubmit={handleSave}>
+            {/* A new state starts from the saved enrollment: an edit left
+                unsaved did not go with the change, so it must not stay shown. */}
+            <Form
+              key={enrollment.state}
+              defaultValues={detail}
+              onSubmit={handleSave}
+            >
               <EnrollmentFormInputs editing />
               <Box
                 display="flex"
@@ -184,7 +204,7 @@ export const EnrollmentAccordionItem = ({
                     color="success"
                     onClick={() => setReactivating(true)}
                   >
-                    {isCancelled ? "Reactivar" : "Restaurar"}
+                    Reactivar
                   </Button>
                 ) : pendingDelete ? (
                   <>
@@ -212,11 +232,13 @@ export const EnrollmentAccordionItem = ({
                   <>
                     {isActive && (
                       <>
+                        <UnsavedChangesHint />
                         <Button
                           size="small"
                           color="error"
                           variant="contained"
                           onClick={() => setPendingDelete(true)}
+                          disabled={saving}
                         >
                           Anular
                         </Button>
@@ -225,6 +247,7 @@ export const EnrollmentAccordionItem = ({
                           color="warning"
                           variant="contained"
                           onClick={() => setWithdrawing(true)}
+                          disabled={saving}
                         >
                           Retirar
                         </Button>

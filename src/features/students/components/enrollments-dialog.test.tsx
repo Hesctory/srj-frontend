@@ -240,7 +240,7 @@ describe("EnrollmentsDialog — editing", { timeout: 30_000 }, () => {
     });
     expect(confirm).toBeDisabled();
 
-    await pick(user, /se aplica desde/, "mayo");
+    await pick(user, /Nuevo precio desde/, "mayo");
 
     expect(
       await screen.findByText("1 pensión cambia de precio."),
@@ -306,7 +306,7 @@ describe("EnrollmentsDialog — editing", { timeout: 30_000 }, () => {
     await user.click(within(dialog).getByRole("button", { name: "Volver" }));
 
     await waitFor(() =>
-      expect(screen.queryByText("El nuevo precio se aplica desde")).toBeNull(),
+      expect(screen.queryByText("Nuevo precio desde")).toBeNull(),
     );
     expect(dataProvider.update).not.toHaveBeenCalled();
   });
@@ -364,7 +364,7 @@ describe("EnrollmentsDialog — editing", { timeout: 30_000 }, () => {
     );
     const user = await renderDialog(dataProvider);
     const confirmMonth = async () => {
-      await pick(user, /se aplica desde/, "mayo");
+      await pick(user, /Nuevo precio desde/, "mayo");
       await screen.findByText("1 pensión cambia de precio.");
       await user.click(
         within(
@@ -401,6 +401,35 @@ describe("EnrollmentsDialog — editing", { timeout: 30_000 }, () => {
       ...placement,
       schoolFeeConceptId: 2,
     });
+  });
+
+  it("warns about an unsaved edit, and locks annul and withdraw during a save", async () => {
+    const dataProvider = makeDataProvider();
+    let finishSave: (value: { data: typeof detail }) => void = () => undefined;
+    dataProvider.update.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishSave = resolve;
+        }),
+    );
+    const user = await renderDialog(dataProvider);
+
+    await screen.findByRole("button", { name: "Anular" });
+    const hint = /cambios sin guardar/;
+    expect(screen.queryByText(hint)).toBeNull();
+
+    await pick(user, /Sección/, "B");
+    expect(await screen.findByText(hint)).toBeVisible();
+
+    await save(user);
+    await waitFor(() => expect(dataProvider.update).toHaveBeenCalledTimes(1));
+    expect(screen.getByRole("button", { name: "Anular" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Retirar" })).toBeDisabled();
+
+    finishSave({ data: detail });
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Anular" })).toBeEnabled(),
+    );
   });
 
   it("shows a 422 on levelId on the field", async () => {
@@ -456,6 +485,56 @@ describe("EnrollmentsDialog — annulling", { timeout: 30_000 }, () => {
     await annul(user);
 
     expect(await screen.findByText(/queda como Retirada/)).toBeVisible();
+  });
+
+  it("drops an unsaved edit once the state changes, and sends the saved values", async () => {
+    const dataProvider = makeDataProvider();
+    const user = await renderDialog(dataProvider);
+    dataProvider.getList.mockImplementation(async (resource: string) =>
+      resource === "enrollments"
+        ? { data: [summaryIn("Retirada")], total: 1 }
+        : { data: lookups[resource] ?? [], total: 0 },
+    );
+
+    await pick(user, /Concepto de Cobro/, "Dscto hermano");
+    await annul(user);
+
+    await waitFor(() => expect(dataProvider.update).toHaveBeenCalledTimes(1));
+    expect(lastBody(dataProvider)).toMatchObject({ schoolFeeConceptId: 1 });
+    await screen.findByText(/queda como Retirada/);
+    await user.click(screen.getByRole("button", { name: /2027/ }));
+    expect(
+      await screen.findByRole("combobox", { name: /Concepto de Cobro/ }),
+    ).toHaveTextContent("Normal");
+  });
+
+  it("does not leave the question open when the row closes", async () => {
+    const user = await renderDialog(makeDataProvider());
+
+    await user.click(await screen.findByRole("button", { name: "Anular" }));
+    await user.click(screen.getByRole("button", { name: /2027/ }));
+    await user.click(screen.getByRole("button", { name: /2027/ }));
+
+    expect(await screen.findByRole("button", { name: "Anular" })).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Sí" })).toBeNull();
+  });
+
+  it("does not claim an outcome when the list cannot be read again", async () => {
+    const dataProvider = makeDataProvider();
+    const user = await renderDialog(dataProvider);
+    dataProvider.getList.mockImplementation(async (resource: string) => {
+      if (resource === "enrollments") throw new Error("offline");
+      return { data: lookups[resource] ?? [], total: 0 };
+    });
+
+    await annul(user);
+
+    expect(
+      await screen.findByText(/no se pudo leer su nuevo estado/, undefined, {
+        timeout: 15_000,
+      }),
+    ).toBeVisible();
+    expect(screen.queryByText(/Matrícula anulada/)).toBeNull();
   });
 
   it("shows the API's 409 when something is paid", async () => {
@@ -531,6 +610,8 @@ describe("EnrollmentsDialog — withdrawing", { timeout: 30_000 }, () => {
 
     const link = await screen.findByRole("link", { name: "Hermana Prueba" });
     expect(link.getAttribute("href")).toContain("/students/9");
+    // In its own tab: the list stays for the next sibling.
+    expect(link).toHaveAttribute("target", "_blank");
   });
 
   it("says when a sibling has no month left to change", async () => {
@@ -564,6 +645,28 @@ describe("EnrollmentsDialog — withdrawing", { timeout: 30_000 }, () => {
     expect(dataProvider.update).not.toHaveBeenCalled();
   });
 
+  it("can try again after a failure that is not the API's refusal", async () => {
+    const dataProvider = makeDataProvider();
+    dataProvider.update.mockRejectedValueOnce(new Error("Failed to fetch"));
+    const user = await renderDialog(dataProvider);
+
+    await openWithDate(user);
+    await screen.findByText("Pensión Junio - 2027");
+    await user.click(confirmButton());
+
+    await waitFor(() => expect(dataProvider.update).toHaveBeenCalledTimes(1));
+    expect(
+      await screen.findByText(
+        "No se pudo registrar el retiro. Inténtalo de nuevo.",
+      ),
+    ).toBeVisible();
+    expect(screen.getByText("Pensión Junio - 2027")).toBeVisible();
+    expect(confirmButton()).toBeEnabled();
+
+    await user.click(confirmButton());
+    await waitFor(() => expect(dataProvider.update).toHaveBeenCalledTimes(2));
+  });
+
   it("stays open and shows the API's refusal at the confirm", async () => {
     const dataProvider = makeDataProvider();
     const message = "Solo se puede retirar una matrícula activa.";
@@ -576,6 +679,7 @@ describe("EnrollmentsDialog — withdrawing", { timeout: 30_000 }, () => {
 
     expect(await screen.findByText(message)).toBeVisible();
     expect(screen.getByLabelText(/Fecha de retiro/)).toBeVisible();
+    expect(confirmButton()).toBeDisabled();
   });
 });
 
@@ -619,7 +723,7 @@ describe("EnrollmentsDialog — reactivating", { timeout: 30_000 }, () => {
     const dataProvider = makeDataProvider("Retirada");
     const user = await renderDialog(dataProvider);
 
-    await open(user, "Restaurar");
+    await open(user, "Reactivar");
     await screen.findByRole("radio", { name: "No, desde mayo" });
     await waitFor(() => expect(reactivate()).toBeEnabled());
     await user.click(reactivate());

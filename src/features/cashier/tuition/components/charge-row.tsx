@@ -197,7 +197,7 @@ const ChargeRow = ({ charge, onPay, onDetails }: ChargeRowProps) => {
           />
           <AmountCell
             label="Pagado"
-            value={settleable ? formatMoney(charge.paidAmount ?? 0) : "—"}
+            value={settleable ? formatMoney(charge.paidAmount) : "—"}
             mobileHidden
           />
           <AmountCell

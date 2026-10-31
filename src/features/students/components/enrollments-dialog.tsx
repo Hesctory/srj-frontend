@@ -110,13 +110,16 @@ export const EnrollmentsDialog = ({
       // The API decides the outcome: a returning student is marked Retirada.
       // `refetch` hands back the provider's `{ data, total }`, whatever its type
       // says: only the hook's own `data` is unwrapped to the rows.
-      const { data } = await refetch();
+      const { data, isError } = await refetch();
       const rows = (data as unknown as { data: EnrollmentSummary[] }).data;
       const state = rows.find((row) => row.id === id)?.state;
       say(
-        state === ENROLLMENT_STATE.withdrawn
-          ? "La matrícula queda como Retirada porque el estudiante tiene otra matrícula. Sus cobros salieron de Caja."
-          : "Matrícula anulada. Sus cobros salieron de Caja.",
+        // A failed refetch leaves the old rows: they cannot tell the outcome.
+        isError
+          ? "Se anularon los cobros de la matrícula, pero no se pudo leer su nuevo estado. Abre de nuevo esta ventana para verlo."
+          : state === ENROLLMENT_STATE.withdrawn
+            ? "La matrícula queda como Retirada porque el estudiante tiene otra matrícula. Sus cobros salieron de Caja."
+            : "Matrícula anulada. Sus cobros salieron de Caja.",
         "success",
       );
       setExpandedId(null);

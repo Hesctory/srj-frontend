@@ -17,7 +17,10 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { Identifier, useDataProvider } from "react-admin";
 import type { AppDataProvider } from "@/app/data-provider";
-import { MONTH_NAMES } from "@/features/students/hooks/use-enrollment-preview";
+import {
+  FIRST_BILLABLE_MONTH,
+  MONTH_NAMES,
+} from "@/features/students/hooks/use-enrollment-preview";
 import { serverErrorMessage } from "@/features/students/utils/server-errors";
 import type {
   EnrollmentChangeLine,
@@ -25,11 +28,10 @@ import type {
 } from "@/types/enrollment";
 import { formatMoney } from "@/utils/money";
 
-const FIRST_MONTH = 3;
 const LAST_MONTH = 12;
 const MONTHS = Array.from(
-  { length: LAST_MONTH - FIRST_MONTH + 1 },
-  (_, index) => FIRST_MONTH + index,
+  { length: LAST_MONTH - FIRST_BILLABLE_MONTH + 1 },
+  (_, index) => FIRST_BILLABLE_MONTH + index,
 );
 
 const OUTCOME_LABELS: Record<EnrollmentChangeOutcome, string> = {
@@ -120,7 +122,7 @@ const EnrollmentRepriceDialog = ({
 
   // Every live pensión comes back whatever the month, so before one is chosen
   // the earliest one still says whether there is anything to price.
-  const repriceFromMonth = month ?? FIRST_MONTH;
+  const repriceFromMonth = month ?? FIRST_BILLABLE_MONTH;
   const { data, error, isPending } = useQuery({
     queryKey: [
       "enrollments",
@@ -137,6 +139,8 @@ const EnrollmentRepriceDialog = ({
       }),
     // A refused preview (404 no fees, 422) answers the same on a retry.
     retry: false,
+    // Amounts from an earlier visit must not be confirmable while new ones load.
+    gcTime: 0,
   });
 
   const lines = data?.lines ?? [];
@@ -172,7 +176,7 @@ const EnrollmentRepriceDialog = ({
                 select
                 required
                 fullWidth
-                label="El nuevo precio se aplica desde"
+                label="Nuevo precio desde"
                 value={month ?? ""}
                 onChange={(event) => setMonth(Number(event.target.value))}
                 disabled={saving}

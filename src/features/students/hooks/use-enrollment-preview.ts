@@ -20,6 +20,9 @@ export const MONTH_NAMES = [
   "diciembre",
 ];
 
+/** The first month of the school year with a pensión. */
+export const FIRST_BILLABLE_MONTH = 3;
+
 export const UNANSWERED_MONTH_MESSAGE =
   "Indica si se cobra la pensión de este mes.";
 

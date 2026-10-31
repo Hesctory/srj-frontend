@@ -196,6 +196,28 @@ describe("DebtsPage — voided charges", { timeout: 30_000 }, () => {
     expect(screen.queryByText("Pensión Octubre - 2026")).toBeNull();
   });
 
+  it("explains them in the details, with no overdue alert or balance", async () => {
+    const user = userEvent.setup();
+    renderPage(
+      makeGetList([
+        {
+          ...voided,
+          isOverdue: true,
+          daysOverdue: 12,
+          isEffective: false,
+        } as EnrollmentCharge,
+      ]),
+    );
+
+    await screen.findByText("Pensión Octubre - 2026");
+    await user.click(screen.getByRole("button", { name: "Detalles" }));
+
+    expect(await screen.findByText(/Este cargo se anuló/)).toBeInTheDocument();
+    expect(screen.queryByText(/Vencido hace/)).toBeNull();
+    expect(screen.queryByText("No vigente")).toBeNull();
+    expect(screen.queryByText("Vencimiento")).toBeNull();
+  });
+
   it("does not count a voided charge in the totals", () => {
     expect(totalsOf([voided])).toEqual({
       charged: 0,

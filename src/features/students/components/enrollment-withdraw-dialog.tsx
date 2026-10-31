@@ -14,10 +14,11 @@ import {
   Typography,
 } from "@mui/material";
 import { useQuery } from "@tanstack/react-query";
-import { Identifier, useDataProvider } from "react-admin";
+import { HttpError, Identifier, useDataProvider } from "react-admin";
 import { Link as RouterLink } from "react-router-dom";
 import type { AppDataProvider } from "@/app/data-provider";
 import {
+  FIRST_BILLABLE_MONTH,
   MONTH_NAMES,
   useDebounced,
 } from "@/features/students/hooks/use-enrollment-preview";
@@ -30,8 +31,6 @@ import type {
   EnrollmentWithdrawalSibling,
 } from "@/types/enrollment";
 import { formatMoney } from "@/utils/money";
-
-const FIRST_MONTH = 3;
 
 const Lines = ({
   title,
@@ -79,7 +78,10 @@ const Siblings = ({
   linked,
 }: {
   siblings: EnrollmentWithdrawalSibling[];
-  /** Once withdrawn, each one opens: until then, leaving would lose the date. */
+  /**
+   * Once withdrawn, each one opens in its own tab, so this list stays for the
+   * next. Until then, they are only named: staff are still deciding.
+   */
   linked: boolean;
 }) => (
   <Box component="section" aria-label="Hermanos con descuento">
@@ -91,7 +93,12 @@ const Siblings = ({
       {siblings.map((sibling) => (
         <Typography variant="body2" component="li" key={sibling.enrollmentId}>
           {linked ? (
-            <Link component={RouterLink} to={`/students/${sibling.studentId}`}>
+            <Link
+              component={RouterLink}
+              to={`/students/${sibling.studentId}`}
+              target="_blank"
+              rel="noopener"
+            >
               {sibling.fullName}
             </Link>
           ) : (
@@ -139,12 +146,18 @@ const EnrollmentWithdrawDialog = ({
       dataProvider.previewEnrollmentWithdrawal(enrollmentId, settled),
     enabled: settled !== "",
     retry: false,
+    // Pensiones from an earlier visit must not be confirmable while new ones load.
+    gcTime: 0,
   });
 
   const current = settled === date && settled !== "";
   const preview = current ? data : undefined;
-  const failure = refusal ?? (current ? error : null);
+  const previewError = current ? error : null;
+  const failure = refusal ?? previewError;
   const dateError = fieldErrors(failure)?.withdrawalDate;
+  // The API's own no stays no; anything else (network, 5xx) can be tried again.
+  const refusedForGood =
+    refusal instanceof HttpError && [409, 422].includes(refusal.status);
 
   const confirm = async () => {
     setSaving(true);
@@ -178,7 +191,7 @@ const EnrollmentWithdrawDialog = ({
 
   const [dateYear, dateMonth] = date.split("-").map(Number);
   const keptUntil =
-    dateYear === year && dateMonth >= FIRST_MONTH
+    dateYear === year && dateMonth >= FIRST_BILLABLE_MONTH
       ? MONTH_NAMES[dateMonth - 1]
       : null;
 
@@ -211,7 +224,9 @@ const EnrollmentWithdrawDialog = ({
             <Alert severity="error">
               {serverErrorMessage(
                 failure,
-                "No se pudo calcular el retiro. Inténtalo de nuevo.",
+                refusal
+                  ? "No se pudo registrar el retiro. Inténtalo de nuevo."
+                  : "No se pudo calcular el retiro. Inténtalo de nuevo.",
               )}
             </Alert>
           ) : null}
@@ -219,9 +234,9 @@ const EnrollmentWithdrawDialog = ({
             <Typography variant="body2" color="text.secondary">
               Indica la fecha para ver qué pensiones se anulan.
             </Typography>
-          ) : !failure && (!current || isPending) ? (
+          ) : !previewError && (!current || isPending) ? (
             <Skeleton variant="rounded" height={120} />
-          ) : preview && !failure ? (
+          ) : preview && !dateError ? (
             <>
               <Typography variant="body2">
                 {keptUntil
@@ -256,7 +271,7 @@ const EnrollmentWithdrawDialog = ({
           variant="contained"
           color="warning"
           onClick={confirm}
-          disabled={!preview || !!failure || saving}
+          disabled={!preview || refusedForGood || saving}
         >
           {saving ? "Retirando…" : "Confirmar retiro"}
         </Button>

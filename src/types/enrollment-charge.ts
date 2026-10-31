@@ -76,7 +76,7 @@ export interface SettleableCharge extends EnrollmentChargeBase {
   effectiveStatusName: string;
 }
 
-/** Fully waived or voided: nothing is owed, so there is no payment data. */
+/** Raised no obligation (fully waived, say): there is no payment data. */
 export interface NonSettleableCharge extends EnrollmentChargeBase {
   obligationId: null;
   dueDate: null;
