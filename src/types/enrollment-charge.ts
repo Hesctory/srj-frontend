@@ -3,9 +3,8 @@
  *
  * Subset of the backend contract kept deliberately small: only the fields the
  * cashier screen actually renders or decides on. Accounting-plan fields
- * (`accountId`/`accountCode`/`accountName`), the raw `statusCode`/`statusName`
- * and the voided flags are omitted — the UI never asks for voided rows and
- * always displays the *effective* status.
+ * (`accountId`/`accountCode`/`accountName`) and the raw `statusCode`/`statusName`
+ * are omitted — the UI always displays the *effective* status.
  */
 
 /** "YYYY-MM-DD". */
@@ -52,6 +51,8 @@ interface EnrollmentChargeBase {
 
   /** The discount cancelled the whole charge: no payment data at all. */
   isFullyWaived: boolean;
+  /** Cancelled, repriced or withdrawn: kept for the record, owes nothing. */
+  isChargeVoided: boolean;
 
   /** Past due with money still owed. Independent of the status codes. */
   isOverdue: boolean;

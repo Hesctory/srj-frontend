@@ -19,6 +19,7 @@ export const isSettleable = (
 /** Still owes money: something can be collected against it. */
 export const isPayable = (charge: EnrollmentCharge): boolean =>
   isSettleable(charge) &&
+  !charge.isChargeVoided &&
   !charge.statusIsTerminal &&
   charge.outstandingAmount > 0;
 
@@ -57,13 +58,15 @@ export const chargeLabel = (charge: EnrollmentCharge): string =>
   `${charge.chargeTypeName}${charge.monthName ? ` ${charge.monthName}` : ""} - ${charge.year}`;
 
 /**
- * Label + colour for the status chip. Waived rows have no status at all and
- * read as "Exonerado"; overdue rows are always red even when their effective
- * status stays PARTIALLY_PAID (the two signals are independent).
+ * Label + colour for the status chip. Voided rows read as "Anulado" whatever
+ * they were; waived rows have no status at all and read as "Exonerado"; overdue
+ * rows are always red even when their effective status stays PARTIALLY_PAID
+ * (the two signals are independent).
  */
 export const statusChipOf = (
   charge: EnrollmentCharge,
 ): { label: string; color: ChargeStatusColor } => {
+  if (charge.isChargeVoided) return { label: "Anulado", color: "default" };
   if (!isSettleable(charge)) {
     return {
       label: charge.isFullyWaived ? "Exonerado" : "Sin deuda",
@@ -95,9 +98,9 @@ export const matchesFilter = (
     case "outstanding":
       return isPayable(charge);
     case "overdue":
-      return charge.isOverdue;
+      return charge.isOverdue && !charge.isChargeVoided;
     case "settled":
-      return !isPayable(charge);
+      return !isPayable(charge) && !charge.isChargeVoided;
     default:
       return true;
   }
@@ -115,6 +118,8 @@ export interface ChargeTotals {
 export const totalsOf = (charges: EnrollmentCharge[]): ChargeTotals =>
   charges.reduce<ChargeTotals>(
     (acc, charge) => {
+      // Shown on the statement, but no longer part of what the family owes.
+      if (charge.isChargeVoided) return acc;
       const outstanding = outstandingOf(charge);
       acc.charged += charge.netAmount;
       acc.discount += charge.discount;

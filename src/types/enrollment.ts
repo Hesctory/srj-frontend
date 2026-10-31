@@ -100,3 +100,75 @@ export interface EnrollmentPreview {
   /** The month whose pensión staff must decide on; null when there is no choice. */
   enrollmentMonthChoice: number | null;
 }
+
+/** `PUT /api/enrollments/:id`. `stateName` makes the request a state change. */
+export interface UpdateEnrollment {
+  levelId: number;
+  gradeId: number;
+  shiftId: number;
+  sectionId: number;
+  schoolFeeConceptId: number;
+  previousSchool: string | null;
+  documents: EnrollmentDocument[];
+  stateName?: string;
+  /**
+   * The month (3–12) a new price starts from. Sent only with a change of
+   * price: a month sent with nothing changed reprices too.
+   */
+  repriceFromMonth?: number;
+  /** YYYY-MM-DD. Required with `stateName: "Retirada"`. */
+  withdrawalDate?: string;
+  /** Days of grace, 0–2, on the charges a reactivation raises. */
+  graceDays?: number;
+  /** Whether a reactivation bills the pensión of the month it happens in. */
+  billEnrollmentMonth?: boolean;
+}
+
+export interface EnrollmentChangePreviewRequest {
+  levelId: number;
+  shiftId: number;
+  schoolFeeConceptId: number;
+  repriceFromMonth: number;
+}
+
+export type EnrollmentChangeOutcome =
+  | "REPRICED"
+  | "UNCHANGED"
+  | "PAID"
+  | "BEFORE_FROM_MONTH";
+
+/** One live pensión, and what the proposed change does to it. */
+export interface EnrollmentChangeLine {
+  month: number;
+  description: string | null;
+  currentNet: number;
+  newGross: number;
+  newDiscount: number;
+  newNet: number;
+  outcome: EnrollmentChangeOutcome | null;
+}
+
+export interface EnrollmentChangePreview {
+  lines: EnrollmentChangeLine[];
+}
+
+export interface EnrollmentWithdrawalLine {
+  month: number;
+  description: string | null;
+  net: number;
+}
+
+export interface EnrollmentWithdrawalSibling {
+  enrollmentId: number;
+  studentId: number;
+  fullName: string | null;
+  conceptName: string | null;
+  /** The first billable month after the withdrawal; null if none is left. */
+  repriceFromMonth: number | null;
+}
+
+export interface EnrollmentWithdrawalPreview {
+  voided: EnrollmentWithdrawalLine[];
+  keptPaid: EnrollmentWithdrawalLine[];
+  siblings: EnrollmentWithdrawalSibling[];
+}

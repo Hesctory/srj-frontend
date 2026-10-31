@@ -98,7 +98,7 @@ export const previewBodyOf = (
 /** Typing a document should not ask the API about every partial number. */
 const DOCUMENTS_DEBOUNCE_MS = 500;
 
-const useDebounced = <T>(value: T, key: string): T => {
+export const useDebounced = <T>(value: T, key: string): T => {
   const [settled, setSettled] = useState(value);
   useEffect(() => {
     const timer = setTimeout(() => setSettled(value), DOCUMENTS_DEBOUNCE_MS);
@@ -157,6 +157,9 @@ export const useEnrollmentPreview = (
     enabled: body !== null,
     // A refused preview (404 no fees, 422) answers the same on a retry.
     retry: false,
+    // The form's two users of this hook each debounce the documents, so they
+    // reach a new body a moment apart: the second must reuse the first's answer.
+    staleTime: 1_000,
     // Keeps the last charges on screen while the next ones load, so the
     // panel does not collapse and jump on every change.
     placeholderData: keepPreviousData,

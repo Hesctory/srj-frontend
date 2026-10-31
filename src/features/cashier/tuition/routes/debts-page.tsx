@@ -76,7 +76,8 @@ export const DebtsPage = () => {
   } = useGetList<EnrollmentCharge>(
     "enrollment-charges",
     {
-      filter: { enrollmentId },
+      // A voided charge is no debt, but the statement keeps it, as cancelled.
+      filter: { enrollmentId, includeVoided: true },
       sort: { field: "duedate", order: "ASC" },
       pagination: { page: 1, perPage: 200 },
     },
