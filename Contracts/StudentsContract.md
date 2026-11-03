@@ -274,6 +274,35 @@ The body every `POST` returns alongside `201 Created`: the id of the row just wr
 }
 ```
 
+## `StudentDeletionPreview`
+
+```jsonc
+{
+  "outcome": "DELETE",     // "DELETE" | "CANCEL_ENROLLMENT" | "WITHDRAW" | "KEEP" | "WAIT" — string | null
+  "reason": "IN_PROCESS",  // "IN_PROCESS" | "STUDIED_BEFORE" | "HAS_PAYMENTS" | "HAS_ISSUED_RECEIPTS" | "HAS_OTHER_CHARGES" — string | null
+  "message": "…",          // string | null
+  "enrollmentId": 1,       // number | null
+  "warnings": [
+    {
+      "code": "CLASSES_STARTED",  // "CLASSES_STARTED" | "OVERDUE_DEBT" | "SIBLING_DISCOUNT" | "VOIDED_PAYMENT" — string | null
+      "message": "…",             // string | null
+      "amount": 352.8             // number | null
+    }
+  ],
+  "siblings": [
+    {
+      "enrollmentId": 1,
+      "studentId": 1,
+      "fullName": "…",        // string | null
+      "conceptName": "…",     // string | null
+      "repriceFromMonth": 1   // number | null — The first billable month starting after the withdrawal; null if none.
+    }
+  ]
+}
+```
+
+What deleting the student would do. `Outcome` is one of `StudentDeletionOutcomes`; `Reason` is null when the student can be deleted; `EnrollmentId` is the enrollment the outcome acts on.
+
 ---
 
 ## Endpoints
@@ -525,6 +554,14 @@ The body every `POST` returns alongside `201 Created`: the id of the row just wr
 
 ### 5. `DELETE /api/students/:id` — Delete
 
+Deletes the student for staff when the deletion preview allows it. Warnings must be confirmed with `confirmWarnings=true`.
+
+**Query params**
+
+| param | type | notes |
+| --- | --- | --- |
+| `confirmWarnings` | `boolean` |  |
+
 **Response** `204` — no body
 
 **Errors**
@@ -535,6 +572,22 @@ The body every `POST` returns alongside `201 Created`: the id of the row just wr
 | `403` | Authenticated, but lacking the required permission. |
 | `404` | No such resource. |
 | `409` | The resource is in a state that forbids this operation. |
+
+---
+
+### 6. `GET /api/students/:id/deletion-preview` — Get
+
+What deleting the student would do, and what staff must confirm. Writes nothing.
+
+**Response** `200` — body is `StudentDeletionPreview`
+
+**Errors**
+
+| Status | When |
+| --- | --- |
+| `401` | No token, or a token that is expired or invalid. |
+| `403` | Authenticated, but lacking the required permission. |
+| `404` | No such resource. |
 
 ---
 

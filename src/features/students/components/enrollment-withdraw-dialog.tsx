@@ -73,7 +73,7 @@ const siblingAdvice = ({ repriceFromMonth }: EnrollmentWithdrawalSibling) =>
     ? "ya no quedan meses por cambiar"
     : `revisar su precio desde ${MONTH_NAMES[repriceFromMonth - 1]}`;
 
-const Siblings = ({
+export const Siblings = ({
   siblings,
   linked,
 }: {

@@ -240,6 +240,41 @@ describe("dataProvider", () => {
     expect(request.url.pathname).toBe(new URL(`${API_URL}${path}`).pathname);
   });
 
+  it("previews a student's deletion", async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({ outcome: "DELETE", warnings: [], siblings: [] }),
+    );
+
+    const preview = await dataProvider.previewStudentDeletion(4);
+
+    expect(lastRequest().method).toBe("GET");
+    expect(lastRequest().url.pathname).toMatch(
+      /\/students\/4\/deletion-preview$/,
+    );
+    expect(preview.outcome).toBe("DELETE");
+  });
+
+  it("deletes a student, confirming the warnings only when asked", async () => {
+    fetchMock.mockImplementation(
+      async () => new Response(null, { status: 204 }),
+    );
+
+    const { data } = await dataProvider.delete("students", {
+      id: 4,
+      previousData: { id: 4, names: "x" },
+    });
+    expect(lastRequest().method).toBe("DELETE");
+    expect(lastRequest().url.pathname).toMatch(/\/students\/4$/);
+    expect(lastRequest().url.search).toBe("");
+    expect(data).toEqual({ id: 4, names: "x" });
+
+    await dataProvider.delete("students", {
+      id: 4,
+      meta: { confirmWarnings: true },
+    });
+    expect(lastRequest().url.searchParams.get("confirmWarnings")).toBe("true");
+  });
+
   it("reads an offering's kardex, passing the period only when given", async () => {
     fetchMock.mockImplementation(async () => jsonResponse({ movements: [] }));
 
