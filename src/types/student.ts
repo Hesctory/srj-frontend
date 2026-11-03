@@ -1,4 +1,5 @@
 import { Identifier } from "react-admin";
+import type { EnrollmentWithdrawalSibling } from "@/types/enrollment";
 
 /**
  * Row shape returned by `GET /students` (the list endpoint).
@@ -52,14 +53,8 @@ export interface StudentDeletionWarning {
   amount: number | null;
 }
 
-export interface StudentDeletionSibling {
-  enrollmentId: number;
-  studentId: number;
-  fullName: string | null;
-  conceptName: string | null;
-  /** The first billable month after the withdrawal; null if none is left. */
-  repriceFromMonth: number | null;
-}
+/** The same sibling a withdrawal lists, with the price to review. */
+export type StudentDeletionSibling = EnrollmentWithdrawalSibling;
 
 export interface StudentDeletionPreview {
   outcome: StudentDeletionOutcome | null;

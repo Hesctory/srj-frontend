@@ -1,14 +1,11 @@
 import { useState } from "react";
 import {
   Alert,
-  Box,
   Button,
-  Checkbox,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
-  FormControlLabel,
   Skeleton,
   Stack,
   Typography,
@@ -19,25 +16,22 @@ import {
   useDataProvider,
   useDelete,
   useGetList,
-  useGetOne,
   useNotify,
   useRedirect,
   type RaRecord,
 } from "react-admin";
 import type { AppDataProvider } from "@/app/data-provider";
-import EnrollmentWithdrawDialog, {
-  Siblings,
-} from "./enrollment-withdraw-dialog";
+import EnrollmentWithdrawDialog from "./enrollment-withdraw-dialog";
+import type { DeletedStudentState } from "./deleted-student-siblings";
+import StudentDeleteSummary from "./student-delete-summary";
 import {
   ENROLLMENT_STATE,
+  annulledMessage,
   updateBodyOf,
 } from "@/features/students/utils/enrollment-update";
 import { serverErrorMessage } from "@/features/students/utils/server-errors";
 import type { EnrollmentSummary } from "@/types/enrollment";
-import type {
-  StudentDeletionOutcome,
-  StudentDeletionPreview,
-} from "@/types/student";
+import type { StudentDeletionOutcome } from "@/types/student";
 
 type Values = Record<string, unknown>;
 
@@ -70,7 +64,6 @@ const StudentDeleteDialog = ({
   const [refusal, setRefusal] = useState<unknown>(null);
   const [annulling, setAnnulling] = useState(false);
   const [withdrawing, setWithdrawing] = useState(false);
-  const [deletedWithSiblings, setDeletedWithSiblings] = useState(false);
 
   const say = (message: string, type: "success" | "error" = "success") =>
     notify(message, { type, messageArgs: { _: message } });
@@ -95,11 +88,19 @@ const StudentDeleteDialog = ({
     enrollmentId !== null;
 
   // The enrollment's PUT resends its placement; its year reads the date typed.
-  const { data: enrollment, error: enrollmentError } = useGetOne<RaRecord>(
-    "enrollments",
-    { id: enrollmentId! },
-    { enabled: actsOnEnrollment },
-  );
+  // Its own key: RA seeds `getOne` with the list's summary rows, which lack
+  // the placement, and a PUT built from one would clear it.
+  const { data: enrollment, error: enrollmentError } = useQuery({
+    queryKey: ["enrollments", enrollmentId, "detail-for-state-change"],
+    queryFn: () =>
+      dataProvider
+        .getOne("enrollments", { id: enrollmentId! })
+        .then(({ data }) => data),
+    enabled: actsOnEnrollment,
+    // Say it at once: staff can close and try again.
+    retry: false,
+    gcTime: 0,
+  });
   const { data: enrollments, refetch: refetchEnrollments } =
     useGetList<EnrollmentSummary>(
       "enrollments",
@@ -144,8 +145,11 @@ const StudentDeleteDialog = ({
         mutationMode: "pessimistic",
         onSuccess: () => {
           say("Estudiante eliminado");
-          if (preview?.siblings.length) setDeletedWithSiblings(true);
-          else redirect("list", "students");
+          // The list asks about the siblings: this page is about to 404.
+          const state: DeletedStudentState = {
+            deletedSiblings: preview?.siblings,
+          };
+          redirect("list", "students", undefined, undefined, state);
         },
         onError: (error) => {
           setRefusal(error);
@@ -167,13 +171,7 @@ const StudentDeleteDialog = ({
         }),
         previousData: enrollment as RaRecord,
       });
-      const { data } = await refetchEnrollments();
-      const state = data?.find((row) => row.id === enrollmentId)?.state;
-      say(
-        state === ENROLLMENT_STATE.withdrawn
-          ? "La matrícula queda como Retirada y el estudiante se mantiene. Sus cobros salieron de Caja."
-          : "Matrícula anulada. Sus cobros salieron de Caja.",
-      );
+      say(annulledMessage(await refetchEnrollments(), enrollmentId));
       onClose();
     } catch (error) {
       setRefusal(error);
@@ -193,23 +191,6 @@ const StudentDeleteDialog = ({
     });
     say("Estudiante retirado");
   };
-
-  if (deletedWithSiblings && preview) {
-    const done = () => redirect("list", "students");
-    return (
-      <Dialog open onClose={done} fullWidth maxWidth="sm">
-        <DialogTitle>Estudiante eliminado</DialogTitle>
-        <DialogContent>
-          <Siblings siblings={preview.siblings} linked />
-        </DialogContent>
-        <DialogActions>
-          <Button variant="contained" onClick={done}>
-            Listo
-          </Button>
-        </DialogActions>
-      </Dialog>
-    );
-  }
 
   if (withdrawing && enrollmentId !== null && year !== undefined) {
     return (
@@ -249,7 +230,7 @@ const StudentDeleteDialog = ({
           ) : !preview || (isFetching && !refusal) ? (
             <Skeleton variant="rounded" height={96} />
           ) : outcome === "DELETE" ? (
-            <DeleteSummary
+            <StudentDeleteSummary
               preview={preview}
               ticked={ticked}
               onTick={tick}
@@ -322,55 +303,5 @@ const StudentDeleteDialog = ({
     </Dialog>
   );
 };
-
-const DeleteSummary = ({
-  preview,
-  ticked,
-  onTick,
-  disabled,
-}: {
-  preview: StudentDeletionPreview;
-  ticked: Set<number>;
-  onTick: (index: number, checked: boolean) => void;
-  disabled: boolean;
-}) => (
-  <>
-    <Typography variant="body2">
-      El estudiante dejará de aparecer en las listas.
-      {preview.enrollmentId !== null &&
-        " Su matrícula se anula y sus cobros salen de Caja."}{" "}
-      Para recuperarlo, vuelve a registrarlo con su documento.
-    </Typography>
-    {preview.warnings.length > 0 && (
-      <Box component="section" aria-label="Advertencias">
-        <Typography variant="subtitle2">
-          Confirma cada advertencia para eliminar:
-        </Typography>
-        <Stack>
-          {preview.warnings.map((warning, index) => (
-            <Box key={`${warning.code}-${index}`}>
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={ticked.has(index)}
-                    onChange={(event) => onTick(index, event.target.checked)}
-                    disabled={disabled}
-                  />
-                }
-                label={warning.message ?? warning.code}
-              />
-              {warning.code === "SIBLING_DISCOUNT" &&
-                preview.siblings.length > 0 && (
-                  <Box sx={{ pl: 4 }}>
-                    <Siblings siblings={preview.siblings} linked={false} />
-                  </Box>
-                )}
-            </Box>
-          ))}
-        </Stack>
-      </Box>
-    )}
-  </>
-);
 
 export default StudentDeleteDialog;

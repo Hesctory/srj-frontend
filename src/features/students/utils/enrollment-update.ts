@@ -1,4 +1,4 @@
-import type { UpdateEnrollment } from "@/types/enrollment";
+import type { EnrollmentSummary, UpdateEnrollment } from "@/types/enrollment";
 
 export const ENROLLMENT_STATE = {
   active: "Activa",
@@ -32,3 +32,25 @@ export const changesPrice = (
   current: Record<string, unknown>,
 ) =>
   PRICE_FIELDS.some((field) => Number(next[field]) !== Number(current[field]));
+
+/**
+ * What to tell staff after annulling an enrollment, read from a refetch of the
+ * student's enrollments: the API decides, and a returning student's enrollment
+ * is marked Retirada instead. `useGetList`'s `refetch` hands back the
+ * provider's `{ data, total }`, whatever its type says: only the hook's own
+ * `data` is unwrapped to the rows.
+ */
+export const annulledMessage = (
+  refetched: { data?: unknown; isError: boolean },
+  enrollmentId: unknown,
+) => {
+  // A failed refetch leaves the old rows: they cannot tell the outcome.
+  if (refetched.isError)
+    return "Se anularon los cobros de la matrícula, pero no se pudo leer su nuevo estado. Abre sus matrículas para verlo.";
+  const rows =
+    (refetched.data as { data?: EnrollmentSummary[] } | undefined)?.data ?? [];
+  const state = rows.find((row) => row.id === enrollmentId)?.state;
+  return state === ENROLLMENT_STATE.withdrawn
+    ? "La matrícula queda como Retirada porque el estudiante tiene otra matrícula. Sus cobros salieron de Caja."
+    : "Matrícula anulada. Sus cobros salieron de Caja.";
+};
