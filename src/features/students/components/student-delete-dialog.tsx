@@ -27,7 +27,7 @@ import StudentDeleteSummary from "./student-delete-summary";
 import {
   ENROLLMENT_STATE,
   annulledMessage,
-  issuedDocumentsNote,
+  updatedNotification,
   updateBodyOf,
 } from "@/features/students/utils/enrollment-update";
 import { serverErrorMessage } from "@/features/students/utils/server-errors";
@@ -190,7 +190,11 @@ const StudentDeleteDialog = ({
       }),
       previousData: enrollment as RaRecord,
     });
-    say(`Estudiante retirado${issuedDocumentsNote(data)}`);
+    const { message, options } = updatedNotification(
+      "Estudiante retirado",
+      data,
+    );
+    notify(message, { ...options, messageArgs: { _: message } });
   };
 
   if (withdrawing && enrollmentId !== null && year !== undefined) {

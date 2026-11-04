@@ -46,7 +46,7 @@ Placing a student in a grade, shift and section for a school year.
 ```jsonc
 {
   "id": 1,
-  "code": "…",               // string | null
+  "code": "…",                       // string | null
   "codeNumber": 1,
   "studentId": 1,
   "levelId": 1,
@@ -55,14 +55,16 @@ Placing a student in a grade, shift and section for a school year.
   "sectionId": 1,
   "schoolFeeConceptId": 1,
   "schoolYearId": 1,
-  "previousSchool": "…",     // string | null
+  "previousSchool": "…",             // string | null
   "documents": [
     {
       "requiredDocumentId": 1,
       "submitted": true
     }
   ],
-  "issuedDocumentIds": [1]   // array | null — On a PUT that changed a paid pensión: the notas de crédito and boletas it issued, not yet sent.
+  "issuedDocumentIds": [1],          // array | null — On a PUT that changed a paid pensión: the notas de crédito and boletas it issued, not yet sent.
+  "refundedInsteadOfCredit": 352.8,  // On a PUT where staff chose `CREDIT` but the enrollment had no pending charge left to apply it to: the amount refunded instead.
+  "notice": "…"                      // string | null — A message for staff to show when the change did something other than what they chose (see `refundedInsteadOfCredit`).
 }
 ```
 

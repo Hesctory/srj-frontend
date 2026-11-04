@@ -19,7 +19,7 @@ import {
 import {
   ENROLLMENT_STATE,
   annulledMessage,
-  issuedDocumentsNote,
+  updatedNotification,
   updateBodyOf,
 } from "@/features/students/utils/enrollment-update";
 import {
@@ -76,6 +76,9 @@ export const EnrollmentsDialog = ({
   const say = (message: string, type: "success" | "error" | "info") =>
     notify(message, { type, messageArgs: { _: message } });
 
+  const tell = ({ message, options }: ReturnType<typeof updatedNotification>) =>
+    notify(message, { ...options, messageArgs: { _: message } });
+
   const refused = (error: unknown, fallback: string) =>
     say(serverErrorMessage(error, fallback), "error");
 
@@ -92,7 +95,7 @@ export const EnrollmentsDialog = ({
         data: updateBodyOf(values, extra),
         previousData,
       });
-      say(`Matrícula actualizada${issuedDocumentsNote(data)}`, "success");
+      tell(updatedNotification("Matrícula actualizada", data));
       await refetch();
       return { saved: true };
     } catch (error) {
@@ -156,7 +159,7 @@ export const EnrollmentsDialog = ({
       }),
       previousData: detail,
     });
-    say(`Estudiante retirado${issuedDocumentsNote(data)}`, "success");
+    tell(updatedNotification("Estudiante retirado", data));
     await refetch();
   };
 

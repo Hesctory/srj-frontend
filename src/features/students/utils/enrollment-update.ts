@@ -60,15 +60,29 @@ export const annulledMessage = (
 };
 
 /**
- * A change of a paid pensión issues notas de crédito and boletas the API does
- * not send to SUNAT itself: staff send them from Comprobantes, where they wait
- * as pending. Empty when the `PUT` issued none.
+ * What to tell staff after a `PUT` that may have moved money. Two things are
+ * added to `lead` when they apply:
+ * - the API's `notice`, when it did something other than what staff chose
+ *   (a credit with no pending charge to go to was refunded instead). Money
+ *   went out that staff did not ask for, so it stays until they close it.
+ * - the comprobantes it issued and did not send to SUNAT: staff send them from
+ *   Comprobantes, where they wait as pending.
  */
-export const issuedDocumentsNote = (updated: unknown) => {
-  const count =
-    (updated as UpdatedEnrollment | undefined)?.issuedDocumentIds?.length ?? 0;
-  if (count === 0) return "";
-  return count === 1
-    ? ". Se emitió 1 comprobante: envíalo a SUNAT desde Comprobantes."
-    : `. Se emitieron ${count} comprobantes: envíalos a SUNAT desde Comprobantes.`;
+export const updatedNotification = (lead: string, updated: unknown) => {
+  const { notice, issuedDocumentIds } = (updated ?? {}) as UpdatedEnrollment;
+  const count = issuedDocumentIds?.length ?? 0;
+  const issued =
+    count === 0
+      ? null
+      : count === 1
+        ? "Se emitió 1 comprobante: envíalo a SUNAT desde Comprobantes."
+        : `Se emitieron ${count} comprobantes: envíalos a SUNAT desde Comprobantes.`;
+  const notes = [notice, issued].filter(Boolean);
+  const message = notes.length ? `${lead}. ${notes.join(" ")}` : lead;
+  return {
+    message,
+    options: notice
+      ? { type: "warning" as const, autoHideDuration: null }
+      : { type: "success" as const },
+  };
 };

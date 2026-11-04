@@ -145,6 +145,13 @@ export interface UpdatedEnrollment {
    * yet sent to SUNAT; null or empty when it issued none.
    */
   issuedDocumentIds?: number[] | null;
+  /**
+   * What was refunded because a `CREDIT` found no pending charge to go to (all
+   * of it, or the part left over); 0 when nothing fell back.
+   */
+  refundedInsteadOfCredit?: number;
+  /** For staff, when the change did something other than what they chose. */
+  notice?: string | null;
 }
 
 export interface EnrollmentChangePreviewRequest {

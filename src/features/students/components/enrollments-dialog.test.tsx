@@ -459,6 +459,41 @@ describe("EnrollmentsDialog — editing", { timeout: 30_000 }, () => {
     ).toBeVisible();
   });
 
+  it("says when a credit was refunded instead, with the comprobantes to send", async () => {
+    const dataProvider = makeDataProvider();
+    const notice =
+      "No hay cargos pendientes para acreditar: S/ 20.00 se devolvieron en lugar del crédito.";
+    dataProvider.previewEnrollmentChange.mockResolvedValue({
+      fromMonth: 12,
+      totalExcess: 20,
+      lines: [line(12, "REPRICED", { paid: 500, excess: 20 })],
+    });
+    dataProvider.update.mockResolvedValue({
+      data: {
+        ...detail,
+        issuedDocumentIds: [7],
+        refundedInsteadOfCredit: 20,
+        notice,
+      },
+    } as never);
+    const user = await renderDialog(dataProvider);
+
+    await pick(user, /Concepto de Cobro/, "Dscto hermano");
+    await save(user);
+    const dialog = await repriceDialog();
+    await user.click(
+      await within(dialog).findByRole("radio", { name: /Descontarlo/ }),
+    );
+    await pick(user, /Medio de devolución/, "Efectivo");
+    await user.click(confirmIn(dialog));
+
+    expect(
+      await screen.findByText(
+        `Matrícula actualizada. ${notice} Se emitió 1 comprobante: envíalo a SUNAT desde Comprobantes.`,
+      ),
+    ).toBeVisible();
+  });
+
   it("shows why the change cannot be priced, and keeps it from saving", async () => {
     const dataProvider = makeDataProvider();
     dataProvider.previewEnrollmentChange.mockRejectedValue(
