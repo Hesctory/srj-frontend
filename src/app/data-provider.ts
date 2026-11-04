@@ -2,6 +2,7 @@ import simpleRestProvider from "ra-data-simple-rest";
 import {
   fetchUtils,
   DataProvider,
+  type DeleteResult,
   type GetOneResult,
   type Identifier,
   type UpdateResult,
@@ -27,7 +28,14 @@ import type {
   PaymentPreviewRequest,
   PaymentPreviewResponse,
 } from "@/types/payment";
-import type { EnrollmentPreview, PreviewEnrollment } from "@/types/enrollment";
+import type { StudentDeletionPreview } from "@/types/student";
+import type {
+  EnrollmentChangePreview,
+  EnrollmentChangePreviewRequest,
+  EnrollmentPreview,
+  EnrollmentWithdrawalPreview,
+  PreviewEnrollment,
+} from "@/types/enrollment";
 
 // VITE_API_URL (in .env.local) points the app at another backend, e.g. an
 // agent's own instance running next to yours on a different port.
@@ -252,17 +260,52 @@ const enrollmentPayments = {
 };
 
 // --- Enrollments ------------------------------------------------------------
-// The charges an enrollment would raise, before it is created. Writes nothing.
+// What an enrollment, a change of price or a withdrawal would do. All three
+// write nothing.
 const enrollments = {
   previewEnrollment: (body: PreviewEnrollment) =>
     sendJson<EnrollmentPreview>("POST", "/enrollments/preview", body),
+  previewEnrollmentChange: (
+    enrollmentId: Identifier,
+    body: EnrollmentChangePreviewRequest,
+  ) =>
+    sendJson<EnrollmentChangePreview>(
+      "POST",
+      `/enrollments/${enrollmentId}/change-preview`,
+      body,
+    ),
+  /** Without a date the API takes today, and says which dates it accepts. */
+  previewEnrollmentWithdrawal: (
+    enrollmentId: Identifier,
+    withdrawalDate: string | null,
+  ) =>
+    sendJson<EnrollmentWithdrawalPreview>(
+      "POST",
+      `/enrollments/${enrollmentId}/withdrawal-preview`,
+      withdrawalDate === null ? {} : { withdrawalDate },
+    ),
+};
+
+// --- Students -----------------------------------------------------------------
+// What deleting a student would do, and what staff must confirm. Writes
+// nothing; the delete itself is RA's `delete` (see `withAppExtensions`).
+const students = {
+  previewStudentDeletion: async (
+    studentId: Identifier,
+  ): Promise<StudentDeletionPreview> => {
+    const { json } = await httpClient(
+      `${API_URL}/students/${studentId}/deletion-preview`,
+    );
+    return json as StudentDeletionPreview;
+  },
 };
 
 export type AppDataProvider = DataProvider & {
   exportReport: typeof exportReport;
 } & typeof catalog &
   typeof enrollmentPayments &
-  typeof enrollments;
+  typeof enrollments &
+  typeof students;
 
 // --- App extensions decorator -----------------------------------------------
 // Wraps a base DataProvider with the app's cross-cutting behaviour: report
@@ -274,6 +317,22 @@ const withAppExtensions = (base: DataProvider): AppDataProvider => ({
   ...catalog,
   ...enrollmentPayments,
   ...enrollments,
+  ...students,
+  // `DELETE /api/students/:id` takes `confirmWarnings=true` once staff have
+  // ticked the preview's warnings (`meta: { confirmWarnings: true }`). It
+  // answers 204, so the record deleted is the one handed in.
+  delete: async (resource, params) => {
+    if (resource === "students") {
+      const query = params.meta?.confirmWarnings ? "?confirmWarnings=true" : "";
+      await httpClient(`${API_URL}/students/${params.id}${query}`, {
+        method: "DELETE",
+      });
+      return {
+        data: params.previousData ?? { id: params.id },
+      } as DeleteResult;
+    }
+    return base.delete(resource, params);
+  },
   update: async (resource, params) => {
     if (resource === "products") {
       const { json } = await httpClient(

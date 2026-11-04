@@ -11,11 +11,17 @@ interface EnrollmentFormInputsProps {
   sourcePrefix?: string;
   /** The student being enrolled; null while the new-student form fills in. */
   studentId?: number | null;
+  /**
+   * An existing enrollment: its charges are already raised, so the questions
+   * and the preview of a new one do not apply, and its year is fixed.
+   */
+  editing?: boolean;
 }
 
 const EnrollmentFormInputs = ({
   sourcePrefix,
   studentId = null,
+  editing = false,
 }: EnrollmentFormInputsProps) => {
   const base = sourcePrefix ? `${sourcePrefix}.` : "";
 
@@ -59,7 +65,10 @@ const EnrollmentFormInputs = ({
             owns half the row, so a viewport-wide "xl" would slice it into
             columns too narrow to read. */}
         <FormGrid minColumnWidth={220}>
-          <AcademicFormSelector sourcePrefix={sourcePrefix} />
+          <AcademicFormSelector
+            sourcePrefix={sourcePrefix}
+            lockYear={editing}
+          />
           <ReferenceInput
             source={`${base}schoolFeeConceptId`}
             reference="school-fee-concepts"
@@ -73,10 +82,12 @@ const EnrollmentFormInputs = ({
             />
           </ReferenceInput>
           {/* Ahead of the free-text field: they decide the charges. */}
-          <EnrollmentTermsInputs
-            sourcePrefix={sourcePrefix}
-            studentId={studentId}
-          />
+          {!editing && (
+            <EnrollmentTermsInputs
+              sourcePrefix={sourcePrefix}
+              studentId={studentId}
+            />
+          )}
           <TextInput
             source={`${base}previousSchool`}
             label="Colegio Anterior"
@@ -97,10 +108,12 @@ const EnrollmentFormInputs = ({
         // receipt's width and line up, instead of a mostly empty frame.
         sx={{ "& > *": { maxWidth: 640 } }}
       >
-        <EnrollmentChargesPreview
-          sourcePrefix={sourcePrefix}
-          studentId={studentId}
-        />
+        {!editing && (
+          <EnrollmentChargesPreview
+            sourcePrefix={sourcePrefix}
+            studentId={studentId}
+          />
+        )}
         <EnrollmentDocumentsSection sourcePrefix={sourcePrefix} />
       </Box>
     </Box>

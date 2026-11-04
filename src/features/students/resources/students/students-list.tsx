@@ -1,5 +1,6 @@
 import type { Theme } from "@mui/material/styles";
 import { List, TextInput } from "react-admin";
+import { DeletedStudentSiblings } from "@/features/students/components/deleted-student-siblings";
 import { academicFilterInputs } from "@/shared/components/academic-filter-selector";
 import {
   StudentListView,
@@ -83,5 +84,6 @@ export const StudentsList = () => (
     sx={[studentListSx, filterBarSx]}
   >
     <StudentListView />
+    <DeletedStudentSiblings />
   </List>
 );

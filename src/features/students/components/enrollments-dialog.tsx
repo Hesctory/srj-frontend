@@ -10,19 +10,45 @@ import {
   CircularProgress,
 } from "@mui/material";
 import {
+  HttpError,
   Identifier,
   useDataProvider,
   useGetList,
   useNotify,
 } from "react-admin";
+import {
+  ENROLLMENT_STATE,
+  annulledMessage,
+  updatedNotification,
+  updateBodyOf,
+} from "@/features/students/utils/enrollment-update";
+import {
+  fieldErrors,
+  serverErrorMessage,
+  splitFieldErrors,
+} from "@/features/students/utils/server-errors";
 import { EnrollmentAccordionItem } from "./enrollment-accordion-item";
-import { EnrollmentSummary } from "@/types/enrollment";
+import { SETTLEMENT_FIELDS } from "./excess-settlement-fields";
+import type { EnrollmentSummary, UpdateEnrollment } from "@/types/enrollment";
 
 interface EnrollmentsDialogProps {
   open: boolean;
   onClose: () => void;
   studentId: Identifier;
 }
+
+type Values = Record<string, unknown>;
+
+/** Values the form keeps without showing an input for them. */
+const NOT_SHOWN = new Set(["documents", ...SETTLEMENT_FIELDS]);
+
+/** The settlement's own messages, for the reprice dialog to show; null if none. */
+const settlementErrorsOf = (errors: Record<string, string>) => {
+  const found = Object.entries(errors).filter(([field]) =>
+    SETTLEMENT_FIELDS.includes(field),
+  );
+  return found.length > 0 ? Object.fromEntries(found) : null;
+};
 
 export const EnrollmentsDialog = ({
   open,
@@ -47,81 +73,118 @@ export const EnrollmentsDialog = ({
     { enabled: open },
   );
 
+  const say = (message: string, type: "success" | "error" | "info") =>
+    notify(message, { type, messageArgs: { _: message } });
+
+  const tell = ({ message, options }: ReturnType<typeof updatedNotification>) =>
+    notify(message, { ...options, messageArgs: { _: message } });
+
+  const refused = (error: unknown, fallback: string) =>
+    say(serverErrorMessage(error, fallback), "error");
+
   const handleSave = async (
     id: Identifier,
-    data: Record<string, unknown>,
-    previousData: Record<string, unknown>,
+    values: Values,
+    previousData: Values,
+    extra: Partial<UpdateEnrollment>,
+    inDialog: boolean,
   ) => {
     try {
-      await dataProvider.update("enrollments", { id, data, previousData });
-      notify("Matrícula actualizada", { type: "success" });
-      refetch();
+      const { data } = await dataProvider.update("enrollments", {
+        id,
+        data: updateBodyOf(values, extra),
+        previousData,
+      });
+      tell(updatedNotification("Matrícula actualizada", data));
+      await refetch();
+      return { saved: true };
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Error desconocido";
-      notify(`Error al guardar: ${message}`, { type: "error" });
+      const errors = fieldErrors(error);
+      // The reprice dialog stays open on these, for staff to settle otherwise.
+      if (inDialog) {
+        const settlementErrors = errors && settlementErrorsOf(errors);
+        if (settlementErrors)
+          return {
+            saved: false,
+            settlementRefusal: { errors: settlementErrors },
+          };
+        if (error instanceof HttpError && error.status === 409)
+          return {
+            saved: false,
+            settlementRefusal: {
+              message: serverErrorMessage(
+                error,
+                "No se pudo guardar la matrícula.",
+              ),
+            },
+          };
+      }
+      if (!errors) {
+        refused(error, "No se pudo guardar la matrícula.");
+        return { saved: false };
+      }
+      const { onFields, elsewhere } = splitFieldErrors(
+        errors,
+        (field) => !NOT_SHOWN.has(field) && values[field] !== undefined,
+      );
+      if (elsewhere) say(elsewhere, "error");
+      return { saved: false, errors: onFields };
     }
   };
 
-  const handleCancel = async (
-    id: Identifier,
-    data: Record<string, unknown>,
-    previousData: Record<string, unknown>,
-  ) => {
+  const handleCancel = async (id: Identifier, detail: Values) => {
     try {
       await dataProvider.update("enrollments", {
         id,
-        data: { ...data, stateName: "Cancelada" },
-        previousData,
+        data: updateBodyOf(detail, { stateName: ENROLLMENT_STATE.cancelled }),
+        previousData: detail,
       });
-      notify("Matrícula cancelada", { type: "success" });
+      say(annulledMessage(await refetch(), id), "success");
       setExpandedId(null);
-      refetch();
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Error desconocido";
-      notify(`Error al cancelar: ${message}`, { type: "error" });
+      refused(error, "No se pudo anular la matrícula.");
     }
   };
 
   const handleWithdraw = async (
     id: Identifier,
-    data: Record<string, unknown>,
-    previousData: Record<string, unknown>,
+    detail: Values,
+    extra: Partial<UpdateEnrollment>,
   ) => {
-    try {
-      await dataProvider.update("enrollments", {
-        id,
-        data: { ...data, stateName: "Retirada" },
-        previousData,
-      });
-      notify("Estudiante retirado", { type: "success" });
-      setExpandedId(null);
-      refetch();
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Error desconocido";
-      notify(`Error al retirar: ${message}`, { type: "error" });
-    }
+    const { data } = await dataProvider.update("enrollments", {
+      id,
+      data: updateBodyOf(detail, {
+        stateName: ENROLLMENT_STATE.withdrawn,
+        ...extra,
+      }),
+      previousData: detail,
+    });
+    tell(updatedNotification("Estudiante retirado", data));
+    await refetch();
   };
 
   const handleReactivate = async (
     id: Identifier,
-    data: Record<string, unknown>,
-    previousData: Record<string, unknown>,
-  ) => {
+    detail: Values,
+    terms: { graceDays: number; billEnrollmentMonth: boolean },
+  ): Promise<Record<string, string> | undefined> => {
     try {
       await dataProvider.update("enrollments", {
         id,
-        data: { ...data, stateName: "Activa" },
-        previousData,
+        data: updateBodyOf(detail, {
+          stateName: ENROLLMENT_STATE.active,
+          ...terms,
+        }),
+        previousData: detail,
       });
-      notify("Matrícula reactivada", { type: "success" });
-      refetch();
+      say("Matrícula reactivada", "success");
+      await refetch();
+      return undefined;
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Error desconocido";
-      notify(`Error al reactivar: ${message}`, { type: "error" });
+      const errors = fieldErrors(error);
+      if (errors?.graceDays) return { graceDays: errors.graceDays };
+      refused(error, "No se pudo reactivar la matrícula.");
+      return {};
     }
   };
 

@@ -88,7 +88,9 @@ const AmountCell = ({
  * payment data at all — they still render, with dashes where the money goes.
  */
 const ChargeRow = ({ charge, onPay, onDetails }: ChargeRowProps) => {
-  const settleable = isSettleable(charge);
+  const voided = charge.isChargeVoided;
+  const settleable = isSettleable(charge) && !voided;
+  const overdue = charge.isOverdue && !voided;
   const payable = isPayable(charge);
   const status = statusChipOf(charge);
   const outstanding = outstandingOf(charge);
@@ -99,7 +101,7 @@ const ChargeRow = ({ charge, onPay, onDetails }: ChargeRowProps) => {
       sx={{
         p: { xs: 1.5, md: 2 },
         borderLeft: 4,
-        borderLeftColor: charge.isOverdue
+        borderLeftColor: overdue
           ? "error.main"
           : payable
             ? "warning.main"
@@ -145,7 +147,7 @@ const ChargeRow = ({ charge, onPay, onDetails }: ChargeRowProps) => {
             )}
           </Stack>
 
-          {charge.isOverdue && (
+          {overdue && (
             <Typography
               variant="caption"
               color="error.main"

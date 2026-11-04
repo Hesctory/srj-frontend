@@ -240,6 +240,41 @@ describe("dataProvider", () => {
     expect(request.url.pathname).toBe(new URL(`${API_URL}${path}`).pathname);
   });
 
+  it("previews a student's deletion", async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({ outcome: "DELETE", warnings: [], siblings: [] }),
+    );
+
+    const preview = await dataProvider.previewStudentDeletion(4);
+
+    expect(lastRequest().method).toBe("GET");
+    expect(lastRequest().url.pathname).toMatch(
+      /\/students\/4\/deletion-preview$/,
+    );
+    expect(preview.outcome).toBe("DELETE");
+  });
+
+  it("deletes a student, confirming the warnings only when asked", async () => {
+    fetchMock.mockImplementation(
+      async () => new Response(null, { status: 204 }),
+    );
+
+    const { data } = await dataProvider.delete("students", {
+      id: 4,
+      previousData: { id: 4, names: "x" },
+    });
+    expect(lastRequest().method).toBe("DELETE");
+    expect(lastRequest().url.pathname).toMatch(/\/students\/4$/);
+    expect(lastRequest().url.search).toBe("");
+    expect(data).toEqual({ id: 4, names: "x" });
+
+    await dataProvider.delete("students", {
+      id: 4,
+      meta: { confirmWarnings: true },
+    });
+    expect(lastRequest().url.searchParams.get("confirmWarnings")).toBe("true");
+  });
+
   it("reads an offering's kardex, passing the period only when given", async () => {
     fetchMock.mockImplementation(async () => jsonResponse({ movements: [] }));
 
@@ -327,6 +362,60 @@ describe("dataProvider", () => {
     expect(request.method).toBe("POST");
     expect(request.url.href).toBe(`${API_URL}/enrollments/preview`);
     expect(request.body).toEqual(body);
+  });
+
+  it("previews a change of price on the enrollment being changed", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ lines: [] }));
+    const body = {
+      levelId: 1,
+      shiftId: 2,
+      schoolFeeConceptId: 3,
+    };
+
+    await dataProvider.previewEnrollmentChange(25, body);
+
+    const request = lastRequest();
+    expect(request.method).toBe("POST");
+    expect(request.url.href).toBe(`${API_URL}/enrollments/25/change-preview`);
+    expect(request.body).toEqual(body);
+  });
+
+  const noWithdrawal = {
+    withdrawalDate: "2027-05-01",
+    minDate: "2027-04-16",
+    maxDate: "2027-05-16",
+    totalExcess: 0,
+    creditable: 0,
+    creditRefusal: null,
+    voided: [],
+    reversed: [],
+    siblings: [],
+  };
+
+  it("previews a withdrawal without a date, for the API's today", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(noWithdrawal));
+
+    await dataProvider.previewEnrollmentWithdrawal(25, null);
+
+    const request = lastRequest();
+    expect(request.method).toBe("POST");
+    expect(request.url.href).toBe(
+      `${API_URL}/enrollments/25/withdrawal-preview`,
+    );
+    expect(request.body).toEqual({});
+  });
+
+  it("previews a withdrawal with its date", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(noWithdrawal));
+
+    await dataProvider.previewEnrollmentWithdrawal(25, "2027-05-01");
+
+    const request = lastRequest();
+    expect(request.method).toBe("POST");
+    expect(request.url.href).toBe(
+      `${API_URL}/enrollments/25/withdrawal-preview`,
+    );
+    expect(request.body).toEqual({ withdrawalDate: "2027-05-01" });
   });
 
   it("maps fee concepts to plain /school-fee-concepts CRUD", async () => {

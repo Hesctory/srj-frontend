@@ -46,7 +46,7 @@ Placing a student in a grade, shift and section for a school year.
 ```jsonc
 {
   "id": 1,
-  "code": "…",            // string | null
+  "code": "…",                       // string | null
   "codeNumber": 1,
   "studentId": 1,
   "levelId": 1,
@@ -55,13 +55,16 @@ Placing a student in a grade, shift and section for a school year.
   "sectionId": 1,
   "schoolFeeConceptId": 1,
   "schoolYearId": 1,
-  "previousSchool": "…",  // string | null
+  "previousSchool": "…",             // string | null
   "documents": [
     {
       "requiredDocumentId": 1,
       "submitted": true
     }
-  ]
+  ],
+  "issuedDocumentIds": [1],          // array | null — On a PUT that changed a paid pensión: the notas de crédito and boletas it issued, not yet sent.
+  "refundedInsteadOfCredit": 352.8,  // On a PUT where staff chose `CREDIT` but the enrollment had no pending charge left to apply it to: the amount refunded instead.
+  "notice": "…"                      // string | null — A message for staff to show when the change did something other than what they chose (see `refundedInsteadOfCredit`).
 }
 ```
 
@@ -136,14 +139,103 @@ The charges an enrollment would raise today, and what staff should check first.
   "shiftId": 1,
   "sectionId": 1,
   "schoolFeeConceptId": 1,
-  "previousSchool": "…",  // string | null
-  "stateName": "…",       // string | null
+  "previousSchool": "…",           // string | null
+  "stateName": "…",                // string | null
   "documents": [
     {
       "requiredDocumentId": 1,
       "submitted": true
     }
-  ]
+  ],
+  "withdrawalDate": "2026-08-19",  // string | null — YYYY-MM-DD — The day the student leaves, with stateName "Retirada": up to 15 days before or after today, never before the enrollment.
+  "excessTreatment": "REFUND",     // "REFUND" | "CREDIT" — string | null — What happens to money a pensión holds beyond its new price, when a change leaves any: `REFUND` or `CREDIT`.
+  "refundPaymentMethodId": 1,      // number | null — The payment method the money goes back by, when any is paid out: a `REFUND`, or what a `CREDIT` finds no debt for.
+  "graceDays": 1,                  // Days of grace, 0–2, on the charges a reactivation raises.
+  "billEnrollmentMonth": true      // Whether a reactivation bills the pensión of the month it happens in.
+}
+```
+
+## `EnrollmentChangePreviewRequest`
+
+```jsonc
+{
+  "levelId": 1,
+  "shiftId": 1,
+  "schoolFeeConceptId": 1
+}
+```
+
+## `EnrollmentChangePreview`
+
+```jsonc
+{
+  "fromMonth": 1,        // number | null — The first month not yet in force, which the new price starts from; null when every month has started.
+  "totalExcess": 352.8,  // What the change would give back to the family, refunded or credited.
+  "lines": [
+    {
+      "month": 1,
+      "description": "…",     // string | null
+      "currentNet": 352.8,
+      "paid": 352.8,          // What the pensión already holds.
+      "newGross": 352.8,
+      "newDiscount": 352.8,
+      "newNet": 352.8,
+      "excess": 352.8,        // What it would hold beyond its new price.
+      "creditNote": true,     // Whether giving the excess back issues a nota de crédito.
+      "outcome": "REPRICED"   // "REPRICED" | "UNCHANGED" | "IN_FORCE" — string | null
+    }
+  ],
+  "creditable": 352.8,   // How much of the excess a `CREDIT` could apply now.
+  "creditRefusal": "…"   // string | null — Why a `CREDIT` would be refused, or null.
+}
+```
+
+Every live pensión, and what the proposed change does to it.
+
+## `EnrollmentWithdrawalPreviewRequest`
+
+```jsonc
+{
+  "withdrawalDate": "2026-08-19"   // string | null — YYYY-MM-DD — Today when omitted.
+}
+```
+
+## `EnrollmentWithdrawalPreview`
+
+```jsonc
+{
+  "withdrawalDate": "2026-08-19",  // YYYY-MM-DD — The date the withdrawal takes.
+  "minDate": "2026-08-19",         // YYYY-MM-DD — The earliest date it may take today.
+  "maxDate": "2026-08-19",         // YYYY-MM-DD — The latest date it may take today.
+  "totalExcess": 352.8,            // What goes back to the family, refunded or credited.
+  "voided": [
+    {
+      "month": 1,
+      "description": "…",  // string | null
+      "net": 352.8
+    }
+  ],
+  "reversed": [
+    {
+      "month": 1,
+      "description": "…",  // string | null
+      "net": 352.8,
+      "paid": 352.8,       // What the pensión holds; all of it goes back.
+      "excess": 352.8,     // The same as Paid: a pensión that stops costs nothing.
+      "creditNote": true   // Whether giving it back issues a nota de crédito.
+    }
+  ],
+  "siblings": [
+    {
+      "enrollmentId": 1,
+      "studentId": 1,
+      "fullName": "…",        // string | null
+      "conceptName": "…",     // string | null
+      "repriceFromMonth": 1   // number | null — The first billable month starting after both the withdrawal and today, the month a reprice made that day starts from; null if none.
+    }
+  ],
+  "creditable": 352.8,             // How much of the excess a `CREDIT` could apply now; the rest would be refunded.
+  "creditRefusal": "…"             // string | null — Why a `CREDIT` would be refused, or null.
 }
 ```
 
@@ -280,14 +372,19 @@ The charges an enrollment would raise today, and what staff should check first.
   "shiftId": 1,
   "sectionId": 1,
   "schoolFeeConceptId": 1,
-  "previousSchool": "…",  // string | null
-  "stateName": "…",       // string | null
+  "previousSchool": "…",           // string | null
+  "stateName": "…",                // string | null
   "documents": [
     {
       "requiredDocumentId": 1,
       "submitted": true
     }
-  ]
+  ],
+  "withdrawalDate": "2026-08-19",  // string | null — YYYY-MM-DD — The day the student leaves, with stateName "Retirada": up to 15 days before or after today, never before the enrollment.
+  "excessTreatment": "REFUND",     // "REFUND" | "CREDIT" — string | null — What happens to money a pensión holds beyond its new price, when a change leaves any: `REFUND` or `CREDIT`.
+  "refundPaymentMethodId": 1,      // number | null — The payment method the money goes back by, when any is paid out: a `REFUND`, or what a `CREDIT` finds no debt for.
+  "graceDays": 1,                  // Days of grace, 0–2, on the charges a reactivation raises.
+  "billEnrollmentMonth": true      // Whether a reactivation bills the pensión of the month it happens in.
 }
 ```
 
@@ -321,7 +418,59 @@ The charges an enrollment would raise today, and what staff should check first.
 
 ---
 
-### 7. `GET /api/enrollments/student/:studentId/latest` — Get
+### 7. `POST /api/enrollments/:id/change-preview` — Change Preview
+
+**Request body**
+
+```jsonc
+{
+  "levelId": 1,
+  "shiftId": 1,
+  "schoolFeeConceptId": 1
+}
+```
+
+**Response** `200` — body is `EnrollmentChangePreview`
+
+**Errors**
+
+| Status | When |
+| --- | --- |
+| `400` | Malformed input, or a business rule rejected the request. |
+| `401` | No token, or a token that is expired or invalid. |
+| `403` | Authenticated, but lacking the required permission. |
+| `404` | No such resource. |
+| `409` | The resource is in a state that forbids this operation. |
+| `422` | Field-level validation failed. |
+
+---
+
+### 8. `POST /api/enrollments/:id/withdrawal-preview` — Withdrawal Preview
+
+**Request body**
+
+```jsonc
+{
+  "withdrawalDate": "2026-08-19"   // string | null — YYYY-MM-DD — Today when omitted.
+}
+```
+
+**Response** `200` — body is `EnrollmentWithdrawalPreview`
+
+**Errors**
+
+| Status | When |
+| --- | --- |
+| `400` | Malformed input, or a business rule rejected the request. |
+| `401` | No token, or a token that is expired or invalid. |
+| `403` | Authenticated, but lacking the required permission. |
+| `404` | No such resource. |
+| `409` | The resource is in a state that forbids this operation. |
+| `422` | Field-level validation failed. |
+
+---
+
+### 9. `GET /api/enrollments/student/:studentId/latest` — Get
 
 **Response** `200` — body is `Enrollment`
 

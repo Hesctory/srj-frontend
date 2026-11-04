@@ -60,7 +60,8 @@ const DetailRow = ({
  * answers "why does this row look like that", not "who paid what and when".
  */
 const ChargeDetailsPanel = ({ charge }: ChargeDetailsPanelProps) => {
-  const settleable = isSettleable(charge);
+  const voided = charge.isChargeVoided;
+  const settleable = isSettleable(charge) && !voided;
   const status = statusChipOf(charge);
 
   return (
@@ -84,20 +85,27 @@ const ChargeDetailsPanel = ({ charge }: ChargeDetailsPanelProps) => {
           <Chip label={status.label} color={status.color} size="small" />
           <Chip label={charge.chargeTypeName} size="small" variant="outlined" />
           <Chip label={String(charge.year)} size="small" variant="outlined" />
-          {!charge.isEffective && (
+          {!charge.isEffective && !voided && (
             <Chip label="No vigente" size="small" variant="outlined" />
           )}
         </Stack>
       </Box>
 
-      {charge.isFullyWaived && (
+      {voided && (
+        <Alert severity="info">
+          Este cargo se anuló: ya no se cobra, y queda en el estado de cuenta
+          como registro.
+        </Alert>
+      )}
+
+      {charge.isFullyWaived && !voided && (
         <Alert severity="info">
           El descuento cubrió el cargo completo, así que no generó deuda y no
           hay nada que cobrar.
         </Alert>
       )}
 
-      {charge.isOverdue && (
+      {charge.isOverdue && !voided && (
         <Alert severity="error">
           Vencido hace {charge.daysOverdue} día
           {charge.daysOverdue === 1 ? "" : "s"}.
