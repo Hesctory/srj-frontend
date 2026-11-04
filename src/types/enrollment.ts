@@ -189,6 +189,14 @@ export interface EnrollmentChangePreview {
   /** What the change would give back to the family, refunded or credited. */
   totalExcess: number;
   lines: EnrollmentChangeLine[];
+  /**
+   * How much of the excess a `CREDIT` could apply now, capped at
+   * `totalExcess`; the rest would be refunded. An estimate: the confirm
+   * computes it again.
+   */
+  creditable: number;
+  /** Why a `CREDIT` would be refused (a 409 at confirm), or null. */
+  creditRefusal: string | null;
 }
 
 export interface EnrollmentWithdrawalLine {
@@ -229,4 +237,7 @@ export interface EnrollmentWithdrawalPreview {
   voided: EnrollmentWithdrawalLine[];
   reversed: EnrollmentWithdrawalReversal[];
   siblings: EnrollmentWithdrawalSibling[];
+  /** As in `EnrollmentChangePreview`. */
+  creditable: number;
+  creditRefusal: string | null;
 }

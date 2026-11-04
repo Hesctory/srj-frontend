@@ -88,6 +88,8 @@ const withdrawal: EnrollmentWithdrawalPreview = {
   minDate: "2027-04-05",
   maxDate: "2027-05-05",
   totalExcess: 0,
+  creditable: 0,
+  creditRefusal: null as string | null,
   voided: [{ month: 6, description: "Pensión Junio - 2027", net: 500 }],
   reversed: [],
   siblings: [
@@ -135,6 +137,8 @@ const makeDataProvider = (state = "Activa") => {
     previewEnrollmentChange: vi.fn(async () => ({
       fromMonth: 4 as number | null,
       totalExcess: 0,
+      creditable: 0,
+      creditRefusal: null as string | null,
       lines: [
         line(3, "IN_FORCE"),
         line(4, "REPRICED"),
@@ -321,6 +325,8 @@ describe("EnrollmentsDialog — editing", { timeout: 30_000 }, () => {
     dataProvider.previewEnrollmentChange.mockResolvedValue({
       fromMonth: null,
       totalExcess: 0,
+      creditable: 0,
+      creditRefusal: null as string | null,
       lines: [],
     });
     const user = await renderDialog(dataProvider);
@@ -345,6 +351,8 @@ describe("EnrollmentsDialog — editing", { timeout: 30_000 }, () => {
     dataProvider.previewEnrollmentChange.mockResolvedValue({
       fromMonth: null,
       totalExcess: 0,
+      creditable: 0,
+      creditRefusal: null as string | null,
       lines: [line(12, "IN_FORCE")],
     });
     const user = await renderDialog(dataProvider);
@@ -362,6 +370,8 @@ describe("EnrollmentsDialog — editing", { timeout: 30_000 }, () => {
     dataProvider.previewEnrollmentChange.mockResolvedValue({
       fromMonth: 4,
       totalExcess: 20,
+      creditable: 20,
+      creditRefusal: null as string | null,
       lines: [line(4, "REPRICED", { paid: 500, excess: 20, creditNote: true })],
     });
     const user = await renderDialog(dataProvider);
@@ -395,11 +405,70 @@ describe("EnrollmentsDialog — editing", { timeout: 30_000 }, () => {
     });
   });
 
+  it("offers no credit the API would refuse, and says why", async () => {
+    const dataProvider = makeDataProvider();
+    const reason =
+      "La pensión no tiene comprobante. Registre la devolución en lugar del crédito.";
+    dataProvider.previewEnrollmentChange.mockResolvedValue({
+      fromMonth: 4,
+      totalExcess: 20,
+      creditable: 0,
+      creditRefusal: reason,
+      lines: [line(4, "REPRICED", { paid: 500, excess: 20 })],
+    });
+    const user = await renderDialog(dataProvider);
+
+    await pick(user, /Concepto de Cobro/, "Dscto hermano");
+    await save(user);
+    const dialog = await repriceDialog();
+
+    expect(
+      await within(dialog).findByRole("radio", { name: /Descontarlo/ }),
+    ).toBeDisabled();
+    expect(within(dialog).getByText(reason)).toBeVisible();
+  });
+
+  it("asks the method up front when a credit covers only part of it", async () => {
+    const dataProvider = makeDataProvider();
+    dataProvider.previewEnrollmentChange.mockResolvedValue({
+      fromMonth: 4,
+      totalExcess: 20,
+      creditable: 15,
+      creditRefusal: null,
+      lines: [line(4, "REPRICED", { paid: 500, excess: 20 })],
+    });
+    const user = await renderDialog(dataProvider);
+
+    await pick(user, /Concepto de Cobro/, "Dscto hermano");
+    await save(user);
+    const dialog = await repriceDialog();
+    await user.click(
+      await within(dialog).findByRole("radio", {
+        name: /Descontar S\/\s15\.00 .*devolver el resto/,
+      }),
+    );
+
+    expect(
+      within(dialog).getByText(`${money(5)} se devuelven por este medio.`),
+    ).toBeVisible();
+    expect(confirmIn(dialog)).toBeDisabled();
+    await pick(user, /Medio de devolución/, "Efectivo");
+    await user.click(confirmIn(dialog));
+
+    await waitFor(() => expect(dataProvider.update).toHaveBeenCalledTimes(1));
+    expect(lastBody(dataProvider)).toMatchObject({
+      excessTreatment: "CREDIT",
+      refundPaymentMethodId: 1,
+    });
+  });
+
   it("keeps the dialog open on a refused settlement, for the method to be added", async () => {
     const dataProvider = makeDataProvider();
     dataProvider.previewEnrollmentChange.mockResolvedValue({
       fromMonth: 4,
       totalExcess: 20,
+      creditable: 20,
+      creditRefusal: null as string | null,
       lines: [line(4, "REPRICED", { paid: 500, excess: 20 })],
     });
     const message = "Indique el medio por el que se devuelve el dinero.";
@@ -466,6 +535,8 @@ describe("EnrollmentsDialog — editing", { timeout: 30_000 }, () => {
     dataProvider.previewEnrollmentChange.mockResolvedValue({
       fromMonth: 12,
       totalExcess: 20,
+      creditable: 20,
+      creditRefusal: null as string | null,
       lines: [line(12, "REPRICED", { paid: 500, excess: 20 })],
     });
     dataProvider.update.mockResolvedValue({
@@ -551,6 +622,8 @@ describe("EnrollmentsDialog — editing", { timeout: 30_000 }, () => {
     dataProvider.previewEnrollmentChange.mockResolvedValue({
       fromMonth: 4,
       totalExcess: 20,
+      creditable: 20,
+      creditRefusal: null as string | null,
       lines: [line(4, "REPRICED", { paid: 500, excess: 20 })],
     });
     const message =
@@ -821,6 +894,8 @@ describe("EnrollmentsDialog — withdrawing", { timeout: 30_000 }, () => {
         ...withdrawal,
         withdrawalDate: date ?? withdrawal.withdrawalDate,
         totalExcess: 480,
+        creditable: 480,
+        creditRefusal: null as string | null,
         reversed: [
           {
             month: 7,
@@ -919,6 +994,8 @@ describe("EnrollmentsDialog — withdrawing", { timeout: 30_000 }, () => {
         ...withdrawal,
         withdrawalDate: date ?? withdrawal.withdrawalDate,
         totalExcess: 480,
+        creditable: 480,
+        creditRefusal: null as string | null,
         reversed: [
           {
             month: 7,

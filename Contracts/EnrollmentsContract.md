@@ -184,7 +184,9 @@ The charges an enrollment would raise today, and what staff should check first.
       "creditNote": true,     // Whether giving the excess back issues a nota de crédito.
       "outcome": "REPRICED"   // "REPRICED" | "UNCHANGED" | "IN_FORCE" — string | null
     }
-  ]
+  ],
+  "creditable": 352.8,   // How much of the excess a `CREDIT` could apply now.
+  "creditRefusal": "…"   // string | null — Why a `CREDIT` would be refused, or null.
 }
 ```
 
@@ -231,7 +233,9 @@ Every live pensión, and what the proposed change does to it.
       "conceptName": "…",     // string | null
       "repriceFromMonth": 1   // number | null — The first billable month starting after both the withdrawal and today, the month a reprice made that day starts from; null if none.
     }
-  ]
+  ],
+  "creditable": 352.8,             // How much of the excess a `CREDIT` could apply now; the rest would be refunded.
+  "creditRefusal": "…"             // string | null — Why a `CREDIT` would be refused, or null.
 }
 ```
 

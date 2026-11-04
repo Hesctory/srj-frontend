@@ -116,6 +116,8 @@ const makeDataProvider = (preview: StudentDeletionPreview = deletable) => ({
     minDate: "2027-04-05",
     maxDate: "2027-05-05",
     totalExcess: 0,
+    creditable: 0,
+    creditRefusal: null,
     voided: [{ month: 6, description: "Pensión Junio - 2027", net: 500 }],
     reversed: [],
     siblings: [],

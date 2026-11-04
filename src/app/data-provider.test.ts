@@ -385,6 +385,8 @@ describe("dataProvider", () => {
     minDate: "2027-04-16",
     maxDate: "2027-05-16",
     totalExcess: 0,
+    creditable: 0,
+    creditRefusal: null,
     voided: [],
     reversed: [],
     siblings: [],

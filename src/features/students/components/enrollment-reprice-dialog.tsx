@@ -165,7 +165,7 @@ const EnrollmentRepriceDialog = ({
   const lines = data?.lines ?? [];
   const totalExcess = data?.totalExcess ?? 0;
   const repricedCount = lines.filter((l) => l.outcome === "REPRICED").length;
-  const ready = !!data && !error && settlementReady(totalExcess, settlement);
+  const ready = !!data && !error && settlementReady(data, settlement);
 
   return (
     <Dialog
@@ -223,7 +223,7 @@ const EnrollmentRepriceDialog = ({
               </Box>
               {totalExcess > 0 && (
                 <ExcessSettlementFields
-                  totalExcess={totalExcess}
+                  capacity={data}
                   value={settlement}
                   onChange={(value) => {
                     setSettlement(value);
@@ -243,7 +243,7 @@ const EnrollmentRepriceDialog = ({
         </Button>
         <Button
           variant="contained"
-          onClick={() => onConfirm(settlementBody(totalExcess, settlement))}
+          onClick={() => onConfirm(settlementBody(data, settlement))}
           disabled={!ready || saving}
         >
           {saving ? "Guardando…" : "Guardar cambios"}

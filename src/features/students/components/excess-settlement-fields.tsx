@@ -11,7 +11,11 @@ import {
   Typography,
 } from "@mui/material";
 import { useGetList } from "react-admin";
-import type { ExcessTreatment, UpdateEnrollment } from "@/types/enrollment";
+import type {
+  EnrollmentChangePreview,
+  ExcessTreatment,
+  UpdateEnrollment,
+} from "@/types/enrollment";
 import type { PaymentMethod } from "@/types/payment";
 import { formatMoney } from "@/utils/money";
 
@@ -37,16 +41,43 @@ export interface SettlementRefusal {
 /** The fields of a `PUT` 422 this block shows on itself. */
 export const SETTLEMENT_FIELDS = ["excessTreatment", "refundPaymentMethodId"];
 
-/** A refund goes out by some method; a credit only needs one for what it finds no debt for. */
-export const settlementReady = (totalExcess: number, draft: SettlementDraft) =>
-  totalExcess <= 0 ||
+/** What either preview says about the money a change gives back. */
+export type CreditCapacity = Pick<
+  EnrollmentChangePreview,
+  "totalExcess" | "creditable" | "creditRefusal"
+>;
+
+const NOTHING_BACK: CreditCapacity = {
+  totalExcess: 0,
+  creditable: 0,
+  creditRefusal: null,
+};
+
+/**
+ * Whether a `CREDIT` can apply anything: the API would refuse it, or find no
+ * pending charge and refund it all. Either way it is not worth offering.
+ */
+const creditOpen = ({ creditable, creditRefusal }: CreditCapacity) =>
+  creditRefusal === null && creditable > 0;
+
+/** Whether some of the money goes out, so a payment method is needed. */
+const needsMethod = (capacity: CreditCapacity, draft: SettlementDraft) =>
+  draft.excessTreatment === "REFUND" ||
+  (draft.excessTreatment === "CREDIT" &&
+    capacity.creditable < capacity.totalExcess);
+
+export const settlementReady = (
+  capacity: CreditCapacity = NOTHING_BACK,
+  draft: SettlementDraft,
+) =>
+  capacity.totalExcess <= 0 ||
   (draft.excessTreatment !== null &&
-    (draft.excessTreatment === "CREDIT" ||
-      draft.refundPaymentMethodId !== null));
+    (draft.excessTreatment !== "CREDIT" || creditOpen(capacity)) &&
+    (!needsMethod(capacity, draft) || draft.refundPaymentMethodId !== null));
 
 /** What the `PUT` carries: nothing when there is nothing to give back. */
 export const settlementBody = (
-  totalExcess: number,
+  { totalExcess }: CreditCapacity = NOTHING_BACK,
   draft: SettlementDraft,
 ): Partial<UpdateEnrollment> =>
   totalExcess > 0 && draft.excessTreatment
@@ -59,7 +90,7 @@ export const settlementBody = (
 const NO_METHODS: PaymentMethod[] = [];
 
 interface ExcessSettlementFieldsProps {
-  totalExcess: number;
+  capacity: CreditCapacity;
   value: SettlementDraft;
   onChange: (value: SettlementDraft) => void;
   errors?: Record<string, string> | null;
@@ -71,7 +102,7 @@ interface ExcessSettlementFieldsProps {
  * paid out today, or applied to what the student still owes.
  */
 export const ExcessSettlementFields = ({
-  totalExcess,
+  capacity,
   value,
   onChange,
   errors,
@@ -87,7 +118,10 @@ export const ExcessSettlementFields = ({
     sort: { field: "id", order: "ASC" },
   });
 
-  const refund = value.excessTreatment === "REFUND";
+  const { totalExcess, creditable, creditRefusal } = capacity;
+  const canCredit = creditOpen(capacity);
+  const methodNeeded = needsMethod(capacity, value);
+  const partly = canCredit && creditable < totalExcess;
   const treatmentError = errors?.excessTreatment;
   const methodError = errors?.refundPaymentMethodId;
 
@@ -118,16 +152,27 @@ export const ExcessSettlementFields = ({
           <FormControlLabel
             value="CREDIT"
             control={<Radio size="small" />}
-            label="Descontarlo de lo que aún debe"
+            label={
+              partly
+                ? `Descontar ${formatMoney(creditable)} de lo que aún debe, y devolver el resto`
+                : "Descontarlo de lo que aún debe"
+            }
+            disabled={!canCredit}
           />
         </RadioGroup>
-        {treatmentError && <FormHelperText>{treatmentError}</FormHelperText>}
+        <FormHelperText>
+          {treatmentError ??
+            creditRefusal ??
+            (canCredit
+              ? null
+              : "No le quedan cargos pendientes: el saldo solo puede devolverse.")}
+        </FormHelperText>
       </FormControl>
       {/* Always there, so choosing a treatment does not move the dialog. */}
       <TextField
         select
         fullWidth
-        required={refund}
+        required={methodNeeded}
         label="Medio de devolución"
         value={value.refundPaymentMethodId ?? ""}
         onChange={(event) =>
@@ -146,11 +191,13 @@ export const ExcessSettlementFields = ({
           (error
             ? "No se pudieron cargar los medios de pago."
             : value.excessTreatment === "CREDIT"
-              ? "Por si el saldo supera lo que debe: el resto se devuelve por este medio."
+              ? partly
+                ? `${formatMoney(totalExcess - creditable)} se devuelven por este medio.`
+                : "Por si al confirmar ya no hay cargos pendientes: se devuelve por este medio."
               : undefined)
         }
       >
-        {value.excessTreatment === "CREDIT" && (
+        {value.excessTreatment === "CREDIT" && !methodNeeded && (
           <MenuItem value="">
             <em>Ninguno</em>
           </MenuItem>

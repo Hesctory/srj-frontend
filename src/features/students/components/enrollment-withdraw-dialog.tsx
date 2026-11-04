@@ -152,7 +152,7 @@ const EnrollmentWithdrawDialog = ({
     try {
       await onConfirm({
         withdrawalDate: preview.withdrawalDate,
-        ...settlementBody(totalExcess, settlement),
+        ...settlementBody(preview, settlement),
       });
       if (preview.siblings.length) setWithdrawn(true);
       else onDone();
@@ -269,7 +269,7 @@ const EnrollmentWithdrawDialog = ({
               )}
               {totalExcess > 0 && (
                 <ExcessSettlementFields
-                  totalExcess={totalExcess}
+                  capacity={preview}
                   value={settlement}
                   onChange={(value) => {
                     setSettlement(value);
@@ -298,7 +298,7 @@ const EnrollmentWithdrawDialog = ({
             !preview ||
             refusedForGood ||
             saving ||
-            !settlementReady(totalExcess, settlement)
+            !settlementReady(preview, settlement)
           }
         >
           {saving ? "Retirando…" : "Confirmar retiro"}
