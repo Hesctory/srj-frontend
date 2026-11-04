@@ -118,7 +118,7 @@ const EnrollmentWithdrawDialog = ({
 
   // A date input reports a valid date at every digit of the year.
   const settled = useDebounced(date, date ?? "(today)");
-  const { data, error, isPending } = useQuery({
+  const { data, error, isPending, refetch } = useQuery({
     queryKey: ["enrollments", enrollmentId, "withdrawal-preview", settled],
     queryFn: () =>
       dataProvider.previewEnrollmentWithdrawal(enrollmentId, settled),
@@ -158,6 +158,8 @@ const EnrollmentWithdrawDialog = ({
       else onDone();
     } catch (cause) {
       setRefusal(cause);
+      // A payment may have landed since the preview: show what holds now.
+      void refetch();
     } finally {
       setSaving(false);
     }
@@ -219,7 +221,7 @@ const EnrollmentWithdrawDialog = ({
               htmlInput: bounds ? { min: bounds.min, max: bounds.max } : {},
             }}
           />
-          {failure && !dateError && !onSettlement ? (
+          {failure && !dateError && !(onSettlement && totalExcess > 0) ? (
             <Alert severity="error">
               {serverErrorMessage(
                 failure,

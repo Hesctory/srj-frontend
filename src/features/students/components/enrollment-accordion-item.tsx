@@ -24,6 +24,7 @@ import {
   changesPrice,
 } from "@/features/students/utils/enrollment-update";
 import type { EnrollmentSummary, UpdateEnrollment } from "@/types/enrollment";
+import type { SettlementRefusal } from "./excess-settlement-fields";
 
 type Values = Record<string, unknown>;
 
@@ -31,8 +32,8 @@ export interface SaveResult {
   saved: boolean;
   /** Messages for the fields the form shows. */
   errors?: Record<string, string>;
-  /** Messages for how the money given back is settled, asked in the reprice dialog. */
-  settlementErrors?: Record<string, string>;
+  /** Why the settlement asked in the reprice dialog was refused, for it to show. */
+  settlementRefusal?: SettlementRefusal;
 }
 
 interface EnrollmentAccordionItemProps {
@@ -44,6 +45,8 @@ interface EnrollmentAccordionItemProps {
     values: Values,
     previousData: Values,
     extra: Partial<UpdateEnrollment>,
+    /** Whether the reprice dialog is open to show a refused settlement. */
+    inDialog: boolean,
   ) => Promise<SaveResult>;
   onCancel: (id: Identifier, detail: Values) => Promise<void>;
   /** A refusal is thrown back, for the dialog to show. */
@@ -85,8 +88,8 @@ export const EnrollmentAccordionItem = ({
   const [reactivating, setReactivating] = useState(false);
   const [proposal, setProposal] = useState<Values | null>(null);
   const [saving, setSaving] = useState(false);
-  const [settlementErrors, setSettlementErrors] = useState<
-    Record<string, string> | undefined
+  const [settlementRefusal, setSettlementRefusal] = useState<
+    SettlementRefusal | undefined
   >();
   // The submit stays pending while staff look at the new prices, so a field
   // error from the save still lands through the form's own return value.
@@ -124,11 +127,17 @@ export const EnrollmentAccordionItem = ({
         if (extra === undefined) return;
 
         setSaving(true);
-        setSettlementErrors(undefined);
+        setSettlementRefusal(undefined);
         try {
-          const result = await onSave(enrollment.id, values, detail!, extra);
-          if (result.settlementErrors && repricing) {
-            setSettlementErrors(result.settlementErrors);
+          const result = await onSave(
+            enrollment.id,
+            values,
+            detail!,
+            extra,
+            repricing,
+          );
+          if (result.settlementRefusal) {
+            setSettlementRefusal(result.settlementRefusal);
             continue;
           }
           if (result.saved) updateDetail({ ...detail, ...values });
@@ -139,7 +148,7 @@ export const EnrollmentAccordionItem = ({
       }
     } finally {
       setProposal(null);
-      setSettlementErrors(undefined);
+      setSettlementRefusal(undefined);
     }
   };
 
@@ -281,7 +290,8 @@ export const EnrollmentAccordionItem = ({
                 shiftId={Number(proposal.shiftId)}
                 schoolFeeConceptId={Number(proposal.schoolFeeConceptId)}
                 saving={saving}
-                errors={settlementErrors}
+                refusal={settlementRefusal}
+                onSettlementChange={() => setSettlementRefusal(undefined)}
                 onConfirm={(extra) => decide.current(extra)}
                 onCancel={() => decide.current(undefined)}
               />

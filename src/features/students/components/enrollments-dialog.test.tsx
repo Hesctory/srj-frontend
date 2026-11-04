@@ -475,28 +475,27 @@ describe("EnrollmentsDialog — editing", { timeout: 30_000 }, () => {
     expect(confirmIn(await repriceDialog())).toBeDisabled();
   });
 
-  it("asks again after a refused save, and not after a saved one", async () => {
+  it("stays open on a refused save, and asks nothing after a saved one", async () => {
     const dataProvider = makeDataProvider();
     dataProvider.update.mockRejectedValueOnce(
       conflict("Un cargo de la matrícula cambió mientras se procesaba."),
     );
     const user = await renderDialog(dataProvider);
-    const confirmChange = async () => {
-      const dialog = await repriceDialog();
-      await within(dialog).findByText(/rige desde abril/);
-      await user.click(confirmIn(dialog));
-    };
 
     await pick(user, /Concepto de Cobro/, "Dscto hermano");
     await save(user);
-    await confirmChange();
-    expect(
-      await screen.findByText(/cambió mientras se procesaba/),
-    ).toBeVisible();
+    const dialog = await repriceDialog();
+    await within(dialog).findByText(/rige desde abril/);
+    await user.click(confirmIn(dialog));
 
-    // Refused: the price still has not changed, so the change is shown again.
-    await save(user);
-    await confirmChange();
+    // Refused: the dialog stays, the change is priced again, and it can retry.
+    expect(
+      await within(dialog).findByText(/cambió mientras se procesaba/),
+    ).toBeVisible();
+    await waitFor(() =>
+      expect(dataProvider.previewEnrollmentChange).toHaveBeenCalledTimes(2),
+    );
+    await user.click(confirmIn(dialog));
     await waitFor(() => expect(dataProvider.update).toHaveBeenCalledTimes(2));
 
     // Saved: another save of the same values moves no price and asks nothing.
@@ -510,6 +509,76 @@ describe("EnrollmentsDialog — editing", { timeout: 30_000 }, () => {
     await save(user);
     await waitFor(() => expect(dataProvider.update).toHaveBeenCalledTimes(3));
     expect(dataProvider.previewEnrollmentChange).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps a refused credit open, for staff to refund instead", async () => {
+    const dataProvider = makeDataProvider();
+    dataProvider.previewEnrollmentChange.mockResolvedValue({
+      fromMonth: 4,
+      totalExcess: 20,
+      lines: [line(4, "REPRICED", { paid: 500, excess: 20 })],
+    });
+    const message =
+      "La pensión no tiene comprobante. Registre la devolución en lugar del crédito.";
+    dataProvider.update.mockRejectedValueOnce(conflict(message));
+    const user = await renderDialog(dataProvider);
+
+    await pick(user, /Concepto de Cobro/, "Dscto hermano");
+    await save(user);
+    const dialog = await repriceDialog();
+    await user.click(
+      await within(dialog).findByRole("radio", { name: /Descontarlo/ }),
+    );
+    await user.click(confirmIn(dialog));
+
+    expect(await within(dialog).findByText(message)).toBeVisible();
+
+    // Changing the settlement retires the refusal.
+    await user.click(within(dialog).getByRole("radio", { name: /Devolverlo/ }));
+    expect(within(dialog).queryByText(message)).toBeNull();
+    await pick(user, /Medio de devolución/, "Efectivo");
+    await user.click(confirmIn(dialog));
+
+    await waitFor(() => expect(dataProvider.update).toHaveBeenCalledTimes(2));
+    expect(lastBody(dataProvider)).toMatchObject({
+      excessTreatment: "REFUND",
+      refundPaymentMethodId: 1,
+    });
+  });
+
+  it("says a settlement refusal even when the preview showed nothing to give back", async () => {
+    const dataProvider = makeDataProvider();
+    const message =
+      "Indique si el saldo a favor se devuelve o se usa como crédito.";
+    dataProvider.update.mockRejectedValueOnce(
+      invalid({ excessTreatment: message }),
+    );
+    const user = await renderDialog(dataProvider);
+
+    await pick(user, /Concepto de Cobro/, "Dscto hermano");
+    await save(user);
+    const dialog = await repriceDialog();
+    await within(dialog).findByText(/rige desde abril/);
+    await user.click(confirmIn(dialog));
+
+    expect(await within(dialog).findByText(message)).toBeVisible();
+    await waitFor(() =>
+      expect(dataProvider.previewEnrollmentChange).toHaveBeenCalledTimes(2),
+    );
+  });
+
+  it("notifies a settlement 422 when no price changed", async () => {
+    const dataProvider = makeDataProvider();
+    const message = "Indique el medio por el que se devuelve el dinero.";
+    dataProvider.update.mockRejectedValueOnce(
+      invalid({ refundPaymentMethodId: message }),
+    );
+    const user = await renderDialog(dataProvider);
+
+    await pick(user, /Sección/, "B");
+    await save(user);
+
+    expect(await screen.findByText(message)).toBeVisible();
   });
 
   it("warns about an unsaved edit, and locks annul and withdraw during a save", async () => {
@@ -806,6 +875,52 @@ describe("EnrollmentsDialog — withdrawing", { timeout: 30_000 }, () => {
 
     expect(await screen.findByText("Ninguna pensión se anula.")).toBeVisible();
     expect(screen.getByText(/ya no quedan meses/)).toBeVisible();
+  });
+
+  it("shows a refused settlement on its field, and lets it be fixed", async () => {
+    const dataProvider = makeDataProvider();
+    dataProvider.previewEnrollmentWithdrawal.mockImplementation(
+      async (_id: unknown, date: string | null) => ({
+        ...withdrawal,
+        withdrawalDate: date ?? withdrawal.withdrawalDate,
+        totalExcess: 480,
+        reversed: [
+          {
+            month: 7,
+            description: "Pensión Julio - 2027",
+            net: 480,
+            paid: 480,
+            excess: 480,
+            creditNote: false,
+          },
+        ],
+        siblings: [],
+      }),
+    );
+    const message = "Indique el medio por el que se devuelve el dinero.";
+    dataProvider.update.mockRejectedValueOnce(
+      invalid({ refundPaymentMethodId: message }),
+    );
+    const user = await renderDialog(dataProvider);
+
+    await openWithDate(user);
+    await screen.findByText("Pensión Julio - 2027");
+    await user.click(screen.getByRole("radio", { name: /Descontarlo/ }));
+    await user.click(confirmButton());
+
+    expect(await screen.findByText(message)).toBeVisible();
+    expect(confirmButton()).toBeDisabled();
+
+    await pick(user, /Medio de devolución/, "Yape");
+    expect(screen.queryByText(message)).toBeNull();
+    expect(confirmButton()).toBeEnabled();
+    await user.click(confirmButton());
+
+    await waitFor(() => expect(dataProvider.update).toHaveBeenCalledTimes(2));
+    expect(lastBody(dataProvider)).toMatchObject({
+      excessTreatment: "CREDIT",
+      refundPaymentMethodId: 2,
+    });
   });
 
   it("shows a date out of range on the field and keeps it from confirming", async () => {

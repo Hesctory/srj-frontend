@@ -10,6 +10,7 @@ import {
   CircularProgress,
 } from "@mui/material";
 import {
+  HttpError,
   Identifier,
   useDataProvider,
   useGetList,
@@ -83,6 +84,7 @@ export const EnrollmentsDialog = ({
     values: Values,
     previousData: Values,
     extra: Partial<UpdateEnrollment>,
+    inDialog: boolean,
   ) => {
     try {
       const { data } = await dataProvider.update("enrollments", {
@@ -95,12 +97,29 @@ export const EnrollmentsDialog = ({
       return { saved: true };
     } catch (error) {
       const errors = fieldErrors(error);
+      // The reprice dialog stays open on these, for staff to settle otherwise.
+      if (inDialog) {
+        const settlementErrors = errors && settlementErrorsOf(errors);
+        if (settlementErrors)
+          return {
+            saved: false,
+            settlementRefusal: { errors: settlementErrors },
+          };
+        if (error instanceof HttpError && error.status === 409)
+          return {
+            saved: false,
+            settlementRefusal: {
+              message: serverErrorMessage(
+                error,
+                "No se pudo guardar la matrícula.",
+              ),
+            },
+          };
+      }
       if (!errors) {
         refused(error, "No se pudo guardar la matrícula.");
         return { saved: false };
       }
-      const settlementErrors = settlementErrorsOf(errors);
-      if (settlementErrors) return { saved: false, settlementErrors };
       const { onFields, elsewhere } = splitFieldErrors(
         errors,
         (field) => !NOT_SHOWN.has(field) && values[field] !== undefined,

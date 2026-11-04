@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Alert,
   Box,
@@ -26,6 +26,7 @@ import { formatMoney } from "@/utils/money";
 import {
   ExcessSettlementFields,
   NO_SETTLEMENT,
+  type SettlementRefusal,
   settlementBody,
   settlementReady,
 } from "./excess-settlement-fields";
@@ -108,8 +109,10 @@ interface EnrollmentRepriceDialogProps {
   schoolFeeConceptId: number;
   /** The enrollment is being written: every button waits. */
   saving: boolean;
-  /** A refused save's messages on the settlement, kept open to fix them. */
-  errors?: Record<string, string>;
+  /** Why the last save's settlement was refused; the dialog stays open on it. */
+  refusal?: SettlementRefusal;
+  /** Staff changed the settlement: the refusal no longer applies. */
+  onSettlementChange?: () => void;
   /** What the `PUT` adds: how the money given back is settled, if any is. */
   onConfirm: (extra: Partial<UpdateEnrollment>) => void;
   onCancel: () => void;
@@ -127,14 +130,15 @@ const EnrollmentRepriceDialog = ({
   shiftId,
   schoolFeeConceptId,
   saving,
-  errors,
+  refusal,
+  onSettlementChange,
   onConfirm,
   onCancel,
 }: EnrollmentRepriceDialogProps) => {
   const dataProvider = useDataProvider<AppDataProvider>();
   const [settlement, setSettlement] = useState(NO_SETTLEMENT);
 
-  const { data, error, isPending } = useQuery({
+  const { data, error, isPending, refetch } = useQuery({
     queryKey: [
       "enrollments",
       enrollmentId,
@@ -153,6 +157,11 @@ const EnrollmentRepriceDialog = ({
     gcTime: 0,
   });
 
+  // A refusal may come from a payment that landed since: price it again.
+  useEffect(() => {
+    if (refusal) void refetch();
+  }, [refusal, refetch]);
+
   const lines = data?.lines ?? [];
   const totalExcess = data?.totalExcess ?? 0;
   const repricedCount = lines.filter((l) => l.outcome === "REPRICED").length;
@@ -168,6 +177,14 @@ const EnrollmentRepriceDialog = ({
       <DialogTitle>Cambiar el precio de la matrícula</DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ pt: 1 }}>
+          {refusal?.message ? (
+            <Alert severity="error">{refusal.message}</Alert>
+          ) : refusal?.errors && totalExcess <= 0 ? (
+            // No settlement fields to put them on: say them here.
+            <Alert severity="error">
+              {Object.values(refusal.errors).join(" ")}
+            </Alert>
+          ) : null}
           {error ? (
             <Alert severity="error">
               {serverErrorMessage(
@@ -208,8 +225,11 @@ const EnrollmentRepriceDialog = ({
                 <ExcessSettlementFields
                   totalExcess={totalExcess}
                   value={settlement}
-                  onChange={setSettlement}
-                  errors={errors}
+                  onChange={(value) => {
+                    setSettlement(value);
+                    onSettlementChange?.();
+                  }}
+                  errors={refusal?.errors}
                   disabled={saving}
                 />
               )}

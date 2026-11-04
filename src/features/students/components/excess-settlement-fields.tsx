@@ -25,6 +25,15 @@ export const NO_SETTLEMENT: SettlementDraft = {
   refundPaymentMethodId: null,
 };
 
+/**
+ * A save refused on its settlement: a 422 on the settlement's own fields, or
+ * the API's no to the treatment (a 409, such as a credit it can't issue).
+ */
+export interface SettlementRefusal {
+  errors?: Record<string, string>;
+  message?: string;
+}
+
 /** The fields of a `PUT` 422 this block shows on itself. */
 export const SETTLEMENT_FIELDS = ["excessTreatment", "refundPaymentMethodId"];
 
@@ -114,43 +123,44 @@ export const ExcessSettlementFields = ({
         </RadioGroup>
         {treatmentError && <FormHelperText>{treatmentError}</FormHelperText>}
       </FormControl>
-      {value.excessTreatment && (
-        <TextField
-          select
-          fullWidth
-          required={refund}
-          label="Medio de devolución"
-          value={value.refundPaymentMethodId ?? ""}
-          onChange={(event) =>
-            onChange({
-              ...value,
-              refundPaymentMethodId:
-                event.target.value === "" ? null : Number(event.target.value),
-            })
-          }
-          disabled={disabled || isPending || !!error}
-          error={!!methodError || !!error}
-          helperText={
-            methodError ??
-            (error
-              ? "No se pudieron cargar los medios de pago."
-              : refund
-                ? undefined
-                : "Por si el saldo supera lo que debe: el resto se devuelve por este medio.")
-          }
-        >
-          {!refund && (
-            <MenuItem value="">
-              <em>Ninguno</em>
-            </MenuItem>
-          )}
-          {methods.map((method) => (
-            <MenuItem key={method.id} value={method.id}>
-              {method.name}
-            </MenuItem>
-          ))}
-        </TextField>
-      )}
+      {/* Always there, so choosing a treatment does not move the dialog. */}
+      <TextField
+        select
+        fullWidth
+        required={refund}
+        label="Medio de devolución"
+        value={value.refundPaymentMethodId ?? ""}
+        onChange={(event) =>
+          onChange({
+            ...value,
+            refundPaymentMethodId:
+              event.target.value === "" ? null : Number(event.target.value),
+          })
+        }
+        disabled={
+          disabled || isPending || !!error || value.excessTreatment === null
+        }
+        error={!!methodError || !!error}
+        helperText={
+          methodError ??
+          (error
+            ? "No se pudieron cargar los medios de pago."
+            : value.excessTreatment === "CREDIT"
+              ? "Por si el saldo supera lo que debe: el resto se devuelve por este medio."
+              : undefined)
+        }
+      >
+        {value.excessTreatment === "CREDIT" && (
+          <MenuItem value="">
+            <em>Ninguno</em>
+          </MenuItem>
+        )}
+        {methods.map((method) => (
+          <MenuItem key={method.id} value={method.id}>
+            {method.name}
+          </MenuItem>
+        ))}
+      </TextField>
     </Stack>
   );
 };
