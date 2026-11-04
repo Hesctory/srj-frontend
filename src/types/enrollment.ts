@@ -101,6 +101,19 @@ export interface EnrollmentPreview {
   enrollmentMonthChoice: number | null;
 }
 
+/** What happens to money a pensión holds beyond its new price. */
+export type ExcessTreatment = "REFUND" | "CREDIT";
+
+/**
+ * How the money a change gives back is settled. Required by the API only when
+ * the change leaves an excess; `refundPaymentMethodId` is required with a
+ * `REFUND`, and with a `CREDIT` that finds no debt to go to.
+ */
+export interface ExcessSettlement {
+  excessTreatment: ExcessTreatment;
+  refundPaymentMethodId: number | null;
+}
+
 /** `PUT /api/enrollments/:id`. `stateName` makes the request a state change. */
 export interface UpdateEnrollment {
   levelId: number;
@@ -112,43 +125,62 @@ export interface UpdateEnrollment {
   documents: EnrollmentDocument[];
   stateName?: string;
   /**
-   * The month (3–12) a new price starts from. Sent only with a change of
-   * price: a month sent with nothing changed reprices too.
+   * YYYY-MM-DD, with `stateName: "Retirada"`: up to 15 days before or after
+   * today, never before the enrollment. Today when omitted.
    */
-  repriceFromMonth?: number;
-  /** YYYY-MM-DD. Required with `stateName: "Retirada"`. */
   withdrawalDate?: string;
+  excessTreatment?: ExcessTreatment;
+  refundPaymentMethodId?: number | null;
   /** Days of grace, 0–2, on the charges a reactivation raises. */
   graceDays?: number;
   /** Whether a reactivation bills the pensión of the month it happens in. */
   billEnrollmentMonth?: boolean;
 }
 
+/** What the `PUT` answers: the enrollment, plus what it issued. */
+export interface UpdatedEnrollment {
+  id: Identifier;
+  /**
+   * The notas de crédito and boletas a change of a paid pensión issued, not
+   * yet sent to SUNAT; null or empty when it issued none.
+   */
+  issuedDocumentIds?: number[] | null;
+}
+
 export interface EnrollmentChangePreviewRequest {
   levelId: number;
   shiftId: number;
   schoolFeeConceptId: number;
-  repriceFromMonth: number;
 }
 
-export type EnrollmentChangeOutcome =
-  | "REPRICED"
-  | "UNCHANGED"
-  | "PAID"
-  | "BEFORE_FROM_MONTH";
+/**
+ * `IN_FORCE`: its month has started, so it keeps its price. The other two are
+ * months not yet in force, whose price changes (paid or not) or stays.
+ */
+export type EnrollmentChangeOutcome = "REPRICED" | "UNCHANGED" | "IN_FORCE";
 
 /** One live pensión, and what the proposed change does to it. */
 export interface EnrollmentChangeLine {
   month: number;
   description: string | null;
   currentNet: number;
+  /** What the pensión already holds. */
+  paid: number;
   newGross: number;
   newDiscount: number;
   newNet: number;
+  /** What it would hold beyond its new price. */
+  excess: number;
+  /** Whether giving the excess back issues a nota de crédito. */
+  creditNote: boolean;
   outcome: EnrollmentChangeOutcome | null;
 }
 
 export interface EnrollmentChangePreview {
+  /** The first month not yet in force; null when every month has started. */
+  fromMonth: number | null;
+  /** What the change would give back to the family, refunded or credited. */
+  totalExcess: number;
   lines: EnrollmentChangeLine[];
 }
 
@@ -158,17 +190,36 @@ export interface EnrollmentWithdrawalLine {
   net: number;
 }
 
+/** A paid pensión the withdrawal stops: all it holds goes back. */
+export interface EnrollmentWithdrawalReversal extends EnrollmentWithdrawalLine {
+  paid: number;
+  /** The same as `paid`: a pensión that stops costs nothing. */
+  excess: number;
+  /** Whether giving it back issues a nota de crédito. */
+  creditNote: boolean;
+}
+
 export interface EnrollmentWithdrawalSibling {
   enrollmentId: number;
   studentId: number;
   fullName: string | null;
   conceptName: string | null;
-  /** The first billable month after the withdrawal; null if none is left. */
+  /**
+   * The first billable month starting after both the withdrawal and today,
+   * the month a reprice made that day starts from; null if none is left.
+   */
   repriceFromMonth: number | null;
 }
 
 export interface EnrollmentWithdrawalPreview {
+  /** YYYY-MM-DD: the date the withdrawal takes (today when none was sent). */
+  withdrawalDate: string;
+  /** YYYY-MM-DD: the earliest and latest dates it may take today. */
+  minDate: string;
+  maxDate: string;
+  /** What goes back to the family, refunded or credited. */
+  totalExcess: number;
   voided: EnrollmentWithdrawalLine[];
-  keptPaid: EnrollmentWithdrawalLine[];
+  reversed: EnrollmentWithdrawalReversal[];
   siblings: EnrollmentWithdrawalSibling[];
 }

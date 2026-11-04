@@ -1,4 +1,8 @@
-import type { EnrollmentSummary, UpdateEnrollment } from "@/types/enrollment";
+import type {
+  EnrollmentSummary,
+  UpdateEnrollment,
+  UpdatedEnrollment,
+} from "@/types/enrollment";
 
 export const ENROLLMENT_STATE = {
   active: "Activa",
@@ -8,7 +12,7 @@ export const ENROLLMENT_STATE = {
 
 /**
  * The fields a `PUT` takes, whatever else the values carry. Naming them keeps
- * a month, a date or a grace answer from one request out of the next.
+ * a date, a settlement or a grace answer from one request out of the next.
  */
 export const updateBodyOf = (
   values: Record<string, unknown>,
@@ -53,4 +57,18 @@ export const annulledMessage = (
   return state === ENROLLMENT_STATE.withdrawn
     ? "La matrícula queda como Retirada porque el estudiante tiene otra matrícula. Sus cobros salieron de Caja."
     : "Matrícula anulada. Sus cobros salieron de Caja.";
+};
+
+/**
+ * A change of a paid pensión issues notas de crédito and boletas the API does
+ * not send to SUNAT itself: staff send them from Comprobantes, where they wait
+ * as pending. Empty when the `PUT` issued none.
+ */
+export const issuedDocumentsNote = (updated: unknown) => {
+  const count =
+    (updated as UpdatedEnrollment | undefined)?.issuedDocumentIds?.length ?? 0;
+  if (count === 0) return "";
+  return count === 1
+    ? ". Se emitió 1 comprobante: envíalo a SUNAT desde Comprobantes."
+    : `. Se emitieron ${count} comprobantes: envíalos a SUNAT desde Comprobantes.`;
 };

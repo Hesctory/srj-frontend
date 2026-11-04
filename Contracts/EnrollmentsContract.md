@@ -46,7 +46,7 @@ Placing a student in a grade, shift and section for a school year.
 ```jsonc
 {
   "id": 1,
-  "code": "…",            // string | null
+  "code": "…",               // string | null
   "codeNumber": 1,
   "studentId": 1,
   "levelId": 1,
@@ -55,13 +55,14 @@ Placing a student in a grade, shift and section for a school year.
   "sectionId": 1,
   "schoolFeeConceptId": 1,
   "schoolYearId": 1,
-  "previousSchool": "…",  // string | null
+  "previousSchool": "…",     // string | null
   "documents": [
     {
       "requiredDocumentId": 1,
       "submitted": true
     }
-  ]
+  ],
+  "issuedDocumentIds": [1]   // array | null — On a PUT that changed a paid pensión: the notas de crédito and boletas it issued, not yet sent.
 }
 ```
 
@@ -144,8 +145,9 @@ The charges an enrollment would raise today, and what staff should check first.
       "submitted": true
     }
   ],
-  "repriceFromMonth": 1,           // number | null — The month (3–12) a new price starts from.
-  "withdrawalDate": "2026-08-19",  // string | null — YYYY-MM-DD — The day the student left.
+  "withdrawalDate": "2026-08-19",  // string | null — YYYY-MM-DD — The day the student leaves, with stateName "Retirada": up to 15 days before or after today, never before the enrollment.
+  "excessTreatment": "REFUND",     // "REFUND" | "CREDIT" — string | null — What happens to money a pensión holds beyond its new price, when a change leaves any: `REFUND` or `CREDIT`.
+  "refundPaymentMethodId": 1,      // number | null — The payment method the money goes back by, when any is paid out: a `REFUND`, or what a `CREDIT` finds no debt for.
   "graceDays": 1,                  // Days of grace, 0–2, on the charges a reactivation raises.
   "billEnrollmentMonth": true      // Whether a reactivation bills the pensión of the month it happens in.
 }
@@ -157,8 +159,7 @@ The charges an enrollment would raise today, and what staff should check first.
 {
   "levelId": 1,
   "shiftId": 1,
-  "schoolFeeConceptId": 1,
-  "repriceFromMonth": 1
+  "schoolFeeConceptId": 1
 }
 ```
 
@@ -166,15 +167,20 @@ The charges an enrollment would raise today, and what staff should check first.
 
 ```jsonc
 {
+  "fromMonth": 1,        // number | null — The first month not yet in force, which the new price starts from; null when every month has started.
+  "totalExcess": 352.8,  // What the change would give back to the family, refunded or credited.
   "lines": [
     {
       "month": 1,
       "description": "…",     // string | null
       "currentNet": 352.8,
+      "paid": 352.8,          // What the pensión already holds.
       "newGross": 352.8,
       "newDiscount": 352.8,
       "newNet": 352.8,
-      "outcome": "REPRICED"   // "REPRICED" | "UNCHANGED" | "PAID" | "BEFORE_FROM_MONTH" — string | null
+      "excess": 352.8,        // What it would hold beyond its new price.
+      "creditNote": true,     // Whether giving the excess back issues a nota de crédito.
+      "outcome": "REPRICED"   // "REPRICED" | "UNCHANGED" | "IN_FORCE" — string | null
     }
   ]
 }
@@ -186,7 +192,7 @@ Every live pensión, and what the proposed change does to it.
 
 ```jsonc
 {
-  "withdrawalDate": "2026-08-19"   // YYYY-MM-DD
+  "withdrawalDate": "2026-08-19"   // string | null — YYYY-MM-DD — Today when omitted.
 }
 ```
 
@@ -194,6 +200,10 @@ Every live pensión, and what the proposed change does to it.
 
 ```jsonc
 {
+  "withdrawalDate": "2026-08-19",  // YYYY-MM-DD — The date the withdrawal takes.
+  "minDate": "2026-08-19",         // YYYY-MM-DD — The earliest date it may take today.
+  "maxDate": "2026-08-19",         // YYYY-MM-DD — The latest date it may take today.
+  "totalExcess": 352.8,            // What goes back to the family, refunded or credited.
   "voided": [
     {
       "month": 1,
@@ -201,11 +211,14 @@ Every live pensión, and what the proposed change does to it.
       "net": 352.8
     }
   ],
-  "keptPaid": [
+  "reversed": [
     {
       "month": 1,
       "description": "…",  // string | null
-      "net": 352.8
+      "net": 352.8,
+      "paid": 352.8,       // What the pensión holds; all of it goes back.
+      "excess": 352.8,     // The same as Paid: a pensión that stops costs nothing.
+      "creditNote": true   // Whether giving it back issues a nota de crédito.
     }
   ],
   "siblings": [
@@ -214,7 +227,7 @@ Every live pensión, and what the proposed change does to it.
       "studentId": 1,
       "fullName": "…",        // string | null
       "conceptName": "…",     // string | null
-      "repriceFromMonth": 1   // number | null — The first billable month starting after the withdrawal; null if none.
+      "repriceFromMonth": 1   // number | null — The first billable month starting after both the withdrawal and today, the month a reprice made that day starts from; null if none.
     }
   ]
 }
@@ -361,8 +374,9 @@ Every live pensión, and what the proposed change does to it.
       "submitted": true
     }
   ],
-  "repriceFromMonth": 1,           // number | null — The month (3–12) a new price starts from.
-  "withdrawalDate": "2026-08-19",  // string | null — YYYY-MM-DD — The day the student left.
+  "withdrawalDate": "2026-08-19",  // string | null — YYYY-MM-DD — The day the student leaves, with stateName "Retirada": up to 15 days before or after today, never before the enrollment.
+  "excessTreatment": "REFUND",     // "REFUND" | "CREDIT" — string | null — What happens to money a pensión holds beyond its new price, when a change leaves any: `REFUND` or `CREDIT`.
+  "refundPaymentMethodId": 1,      // number | null — The payment method the money goes back by, when any is paid out: a `REFUND`, or what a `CREDIT` finds no debt for.
   "graceDays": 1,                  // Days of grace, 0–2, on the charges a reactivation raises.
   "billEnrollmentMonth": true      // Whether a reactivation bills the pensión of the month it happens in.
 }
@@ -406,8 +420,7 @@ Every live pensión, and what the proposed change does to it.
 {
   "levelId": 1,
   "shiftId": 1,
-  "schoolFeeConceptId": 1,
-  "repriceFromMonth": 1
+  "schoolFeeConceptId": 1
 }
 ```
 
@@ -432,7 +445,7 @@ Every live pensión, and what the proposed change does to it.
 
 ```jsonc
 {
-  "withdrawalDate": "2026-08-19"   // YYYY-MM-DD
+  "withdrawalDate": "2026-08-19"   // string | null — YYYY-MM-DD — Today when omitted.
 }
 ```
 

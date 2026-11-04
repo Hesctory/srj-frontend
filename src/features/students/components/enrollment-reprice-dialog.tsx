@@ -8,37 +8,41 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
-  MenuItem,
   Skeleton,
   Stack,
-  TextField,
   Typography,
 } from "@mui/material";
 import { useQuery } from "@tanstack/react-query";
 import { Identifier, useDataProvider } from "react-admin";
 import type { AppDataProvider } from "@/app/data-provider";
-import {
-  FIRST_BILLABLE_MONTH,
-  MONTH_NAMES,
-} from "@/features/students/hooks/use-enrollment-preview";
+import { MONTH_NAMES } from "@/features/students/hooks/use-enrollment-preview";
 import { serverErrorMessage } from "@/features/students/utils/server-errors";
 import type {
   EnrollmentChangeLine,
   EnrollmentChangeOutcome,
+  UpdateEnrollment,
 } from "@/types/enrollment";
 import { formatMoney } from "@/utils/money";
-
-const LAST_MONTH = 12;
-const MONTHS = Array.from(
-  { length: LAST_MONTH - FIRST_BILLABLE_MONTH + 1 },
-  (_, index) => FIRST_BILLABLE_MONTH + index,
-);
+import {
+  ExcessSettlementFields,
+  NO_SETTLEMENT,
+  settlementBody,
+  settlementReady,
+} from "./excess-settlement-fields";
 
 const OUTCOME_LABELS: Record<EnrollmentChangeOutcome, string> = {
   REPRICED: "Cambia",
   UNCHANGED: "Sin cambio",
-  PAID: "Con pago, se mantiene",
-  BEFORE_FROM_MONTH: "Antes del mes elegido",
+  IN_FORCE: "En curso, se mantiene",
+};
+
+/** What the line already holds, and what of it goes back. */
+const paidNote = ({ paid, excess, creditNote }: EnrollmentChangeLine) => {
+  if (paid <= 0) return null;
+  const held = `Pagado ${formatMoney(paid)}`;
+  if (excess <= 0) return held;
+  const back = `se devuelven ${formatMoney(excess)}`;
+  return `${held}: ${back}${creditNote ? " con nota de crédito" : ""}`;
 };
 
 const ChangeLine = ({ line }: { line: EnrollmentChangeLine }) => {
@@ -74,9 +78,14 @@ const ChangeLine = ({ line }: { line: EnrollmentChangeLine }) => {
           : formatMoney(line.currentNet)}
       </Typography>
       <Typography variant="caption" color="text.secondary">
-        {repriced && line.newDiscount > 0
-          ? `${formatMoney(line.newGross)} − ${formatMoney(line.newDiscount)} de descuento`
-          : ""}
+        {[
+          repriced && line.newDiscount > 0
+            ? `${formatMoney(line.newGross)} − ${formatMoney(line.newDiscount)} de descuento`
+            : null,
+          paidNote(line),
+        ]
+          .filter(Boolean)
+          .join(" · ")}
       </Typography>
       {line.outcome && (
         <Chip
@@ -99,14 +108,18 @@ interface EnrollmentRepriceDialogProps {
   schoolFeeConceptId: number;
   /** The enrollment is being written: every button waits. */
   saving: boolean;
-  /** Null when no pensión is left to price, so no month applies. */
-  onConfirm: (repriceFromMonth: number | null) => void;
+  /** A refused save's messages on the settlement, kept open to fix them. */
+  errors?: Record<string, string>;
+  /** What the `PUT` adds: how the money given back is settled, if any is. */
+  onConfirm: (extra: Partial<UpdateEnrollment>) => void;
   onCancel: () => void;
 }
 
 /**
- * The stop before a change of concept, level or shift is saved: which month
- * the new price starts from, and what that does to every pensión.
+ * The stop before a change of concept, level or shift is saved: the API says
+ * from which month the new price applies (the first not yet in force) and
+ * what that does to every pensión. Money a paid month holds beyond its new
+ * price goes back, refunded or credited, as staff choose here.
  */
 const EnrollmentRepriceDialog = ({
   enrollmentId,
@@ -114,28 +127,25 @@ const EnrollmentRepriceDialog = ({
   shiftId,
   schoolFeeConceptId,
   saving,
+  errors,
   onConfirm,
   onCancel,
 }: EnrollmentRepriceDialogProps) => {
   const dataProvider = useDataProvider<AppDataProvider>();
-  const [month, setMonth] = useState<number | null>(null);
+  const [settlement, setSettlement] = useState(NO_SETTLEMENT);
 
-  // Every live pensión comes back whatever the month, so before one is chosen
-  // the earliest one still says whether there is anything to price.
-  const repriceFromMonth = month ?? FIRST_BILLABLE_MONTH;
   const { data, error, isPending } = useQuery({
     queryKey: [
       "enrollments",
       enrollmentId,
       "change-preview",
-      { levelId, shiftId, schoolFeeConceptId, repriceFromMonth },
+      { levelId, shiftId, schoolFeeConceptId },
     ],
     queryFn: () =>
       dataProvider.previewEnrollmentChange(enrollmentId, {
         levelId,
         shiftId,
         schoolFeeConceptId,
-        repriceFromMonth,
       }),
     // A refused preview (404 no fees, 422) answers the same on a retry.
     retry: false,
@@ -144,9 +154,9 @@ const EnrollmentRepriceDialog = ({
   });
 
   const lines = data?.lines ?? [];
-  const nothingToPrice = !!data && lines.length === 0;
+  const totalExcess = data?.totalExcess ?? 0;
   const repricedCount = lines.filter((l) => l.outcome === "REPRICED").length;
-  const ready = !isPending && !error && (nothingToPrice || month !== null);
+  const ready = !!data && !error && settlementReady(totalExcess, settlement);
 
   return (
     <Dialog
@@ -165,53 +175,43 @@ const EnrollmentRepriceDialog = ({
                 "No se pudo calcular el cambio. Inténtalo de nuevo.",
               )}
             </Alert>
-          ) : nothingToPrice ? (
+          ) : isPending ? (
+            <Skeleton variant="rounded" height={120} />
+          ) : lines.length === 0 ? (
             <Alert severity="info">
               Esta matrícula no tiene pensiones vigentes: el cambio se guarda
               sin mover ningún monto.
             </Alert>
           ) : (
             <>
-              <TextField
-                select
-                required
-                fullWidth
-                label="Nuevo precio desde"
-                value={month ?? ""}
-                onChange={(event) => setMonth(Number(event.target.value))}
-                disabled={saving}
+              <Typography variant="body2">
+                {data.fromMonth === null
+                  ? "Todos los meses ya empezaron: sus pensiones mantienen su precio."
+                  : `El nuevo precio rige desde ${MONTH_NAMES[data.fromMonth - 1]}, el primer mes que aún no empieza. ${
+                      repricedCount === 0
+                        ? "Ninguna pensión cambia de precio."
+                        : repricedCount === 1
+                          ? "1 pensión cambia de precio."
+                          : `${repricedCount} pensiones cambian de precio.`
+                    }`}
+              </Typography>
+              <Box
+                component="ul"
+                aria-label="Pensiones de la matrícula"
+                sx={{ listStyle: "none", m: 0, p: 0 }}
               >
-                {MONTHS.map((option) => (
-                  <MenuItem key={option} value={option}>
-                    {MONTH_NAMES[option - 1]}
-                  </MenuItem>
+                {lines.map((line) => (
+                  <ChangeLine key={line.month} line={line} />
                 ))}
-              </TextField>
-              {isPending ? (
-                <Skeleton variant="rounded" height={120} />
-              ) : month === null ? (
-                <Typography variant="body2" color="text.secondary">
-                  Elige el mes para ver el monto de cada pensión.
-                </Typography>
-              ) : (
-                <>
-                  <Typography variant="body2">
-                    {repricedCount === 0
-                      ? "Ninguna pensión cambia de precio."
-                      : repricedCount === 1
-                        ? "1 pensión cambia de precio."
-                        : `${repricedCount} pensiones cambian de precio.`}
-                  </Typography>
-                  <Box
-                    component="ul"
-                    aria-label="Pensiones de la matrícula"
-                    sx={{ listStyle: "none", m: 0, p: 0 }}
-                  >
-                    {lines.map((line) => (
-                      <ChangeLine key={line.month} line={line} />
-                    ))}
-                  </Box>
-                </>
+              </Box>
+              {totalExcess > 0 && (
+                <ExcessSettlementFields
+                  totalExcess={totalExcess}
+                  value={settlement}
+                  onChange={setSettlement}
+                  errors={errors}
+                  disabled={saving}
+                />
               )}
             </>
           )}
@@ -223,7 +223,7 @@ const EnrollmentRepriceDialog = ({
         </Button>
         <Button
           variant="contained"
-          onClick={() => onConfirm(nothingToPrice ? null : month)}
+          onClick={() => onConfirm(settlementBody(totalExcess, settlement))}
           disabled={!ready || saving}
         >
           {saving ? "Guardando…" : "Guardar cambios"}

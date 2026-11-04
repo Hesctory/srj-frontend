@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Siblings } from "./siblings-to-review";
 import {
   Alert,
@@ -25,16 +25,25 @@ import {
   fieldErrors,
   serverErrorMessage,
 } from "@/features/students/utils/server-errors";
-import type { EnrollmentWithdrawalLine } from "@/types/enrollment";
+import type { UpdateEnrollment } from "@/types/enrollment";
+import { formatDate } from "@/utils/date";
 import { formatMoney } from "@/utils/money";
+import {
+  ExcessSettlementFields,
+  NO_SETTLEMENT,
+  SETTLEMENT_FIELDS,
+  settlementBody,
+  settlementReady,
+} from "./excess-settlement-fields";
 
-const Lines = ({
-  title,
-  lines,
-}: {
-  title: string;
-  lines: EnrollmentWithdrawalLine[];
-}) => (
+interface Line {
+  month: number;
+  description: string | null;
+  amount: number;
+  note?: string;
+}
+
+const Lines = ({ title, lines }: { title: string; lines: Line[] }) => (
   <Box component="section" aria-label={title}>
     <Typography variant="subtitle2">{title}</Typography>
     <Box component="ul" sx={{ listStyle: "none", m: 0, p: 0 }}>
@@ -51,12 +60,19 @@ const Lines = ({
             borderColor: "divider",
           }}
         >
-          <Typography variant="body2">{line.description}</Typography>
+          <Box sx={{ minWidth: 0 }}>
+            <Typography variant="body2">{line.description}</Typography>
+            {line.note && (
+              <Typography variant="caption" color="text.secondary">
+                {line.note}
+              </Typography>
+            )}
+          </Box>
           <Typography
             variant="body2"
             sx={{ fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}
           >
-            {formatMoney(line.net)}
+            {formatMoney(line.amount)}
           </Typography>
         </Box>
       ))}
@@ -66,10 +82,13 @@ const Lines = ({
 
 interface EnrollmentWithdrawDialogProps {
   enrollmentId: Identifier;
-  /** The enrollment's school year, to read the typed date against. */
+  /** The enrollment's school year, to read the date against. */
   year: number;
-  /** Writes the withdrawal; a refusal is thrown back to be shown here. */
-  onConfirm: (withdrawalDate: string) => Promise<void>;
+  /**
+   * Writes the withdrawal with what the `PUT` adds (the date, and how the
+   * money given back is settled); a refusal is thrown back to be shown here.
+   */
+  onConfirm: (extra: Partial<UpdateEnrollment>) => Promise<void>;
   onCancel: () => void;
   onDone: () => void;
 }
@@ -77,6 +96,7 @@ interface EnrollmentWithdrawDialogProps {
 /**
  * Withdrawing a student: the date, what it does to the pensiones, and the
  * siblings whose discount may no longer apply. Those are listed, not changed.
+ * Paid pensiones after the date go back to the family, refunded or credited.
  */
 const EnrollmentWithdrawDialog = ({
   enrollmentId,
@@ -86,13 +106,18 @@ const EnrollmentWithdrawDialog = ({
   onDone,
 }: EnrollmentWithdrawDialogProps) => {
   const dataProvider = useDataProvider<AppDataProvider>();
-  const [date, setDate] = useState("");
+  // Null until staff type one: the API proposes today, and the dates it takes.
+  const [date, setDate] = useState<string | null>(null);
+  const [settlement, setSettlement] = useState(NO_SETTLEMENT);
+  const [bounds, setBounds] = useState<{ min: string; max: string } | null>(
+    null,
+  );
   const [saving, setSaving] = useState(false);
   const [withdrawn, setWithdrawn] = useState(false);
   const [refusal, setRefusal] = useState<unknown>(null);
 
   // A date input reports a valid date at every digit of the year.
-  const settled = useDebounced(date, date);
+  const settled = useDebounced(date, date ?? "(today)");
   const { data, error, isPending } = useQuery({
     queryKey: ["enrollments", enrollmentId, "withdrawal-preview", settled],
     queryFn: () =>
@@ -103,21 +128,33 @@ const EnrollmentWithdrawDialog = ({
     gcTime: 0,
   });
 
-  const current = settled === date && settled !== "";
+  // The window stays on the field while another date is priced.
+  useEffect(() => {
+    if (data) setBounds({ min: data.minDate, max: data.maxDate });
+  }, [data]);
+
+  const current = settled === date && date !== "";
   const preview = current ? data : undefined;
   const previewError = current ? error : null;
   const failure = refusal ?? previewError;
-  const dateError = fieldErrors(failure)?.withdrawalDate;
+  const errors = fieldErrors(failure);
+  const dateError = errors?.withdrawalDate;
+  const onSettlement = SETTLEMENT_FIELDS.some((field) => errors?.[field]);
   // The API's own no stays no; anything else (network, 5xx) can be tried again.
   const refusedForGood =
     refusal instanceof HttpError && [409, 422].includes(refusal.status);
+  const totalExcess = preview?.totalExcess ?? 0;
 
   const confirm = async () => {
+    if (!preview) return;
     setSaving(true);
     setRefusal(null);
     try {
-      await onConfirm(date);
-      if (preview?.siblings.length) setWithdrawn(true);
+      await onConfirm({
+        withdrawalDate: preview.withdrawalDate,
+        ...settlementBody(totalExcess, settlement),
+      });
+      if (preview.siblings.length) setWithdrawn(true);
       else onDone();
     } catch (cause) {
       setRefusal(cause);
@@ -142,7 +179,8 @@ const EnrollmentWithdrawDialog = ({
     );
   }
 
-  const [dateYear, dateMonth] = date.split("-").map(Number);
+  const shown = date ?? data?.withdrawalDate ?? "";
+  const [dateYear, dateMonth] = shown.split("-").map(Number);
   const keptUntil =
     dateYear === year && dateMonth >= FIRST_BILLABLE_MONTH
       ? MONTH_NAMES[dateMonth - 1]
@@ -163,17 +201,25 @@ const EnrollmentWithdrawDialog = ({
             required
             fullWidth
             label="Fecha de retiro"
-            value={date}
+            value={shown}
             onChange={(event) => {
               setDate(event.target.value);
               setRefusal(null);
             }}
             disabled={saving}
             error={!!dateError}
-            helperText={dateError}
-            slotProps={{ inputLabel: { shrink: true } }}
+            helperText={
+              dateError ??
+              (bounds
+                ? `Entre el ${formatDate(bounds.min)} y el ${formatDate(bounds.max)}.`
+                : undefined)
+            }
+            slotProps={{
+              inputLabel: { shrink: true },
+              htmlInput: bounds ? { min: bounds.min, max: bounds.max } : {},
+            }}
           />
-          {failure && !dateError ? (
+          {failure && !dateError && !onSettlement ? (
             <Alert severity="error">
               {serverErrorMessage(
                 failure,
@@ -197,16 +243,38 @@ const EnrollmentWithdrawDialog = ({
                   : "La matrícula y la cuota de ingreso se mantienen."}
               </Typography>
               {preview.voided.length > 0 ? (
-                <Lines title="Pensiones que se anulan" lines={preview.voided} />
-              ) : (
+                <Lines
+                  title="Pensiones que se anulan"
+                  lines={preview.voided.map((line) => ({
+                    ...line,
+                    amount: line.net,
+                  }))}
+                />
+              ) : preview.reversed.length === 0 ? (
                 <Typography variant="body2">
                   Ninguna pensión se anula.
                 </Typography>
-              )}
-              {preview.keptPaid.length > 0 && (
+              ) : null}
+              {preview.reversed.length > 0 && (
                 <Lines
-                  title="Pensiones posteriores con pago, se mantienen"
-                  lines={preview.keptPaid}
+                  title="Pensiones pagadas que se anulan: se devuelve lo pagado"
+                  lines={preview.reversed.map((line) => ({
+                    ...line,
+                    amount: line.paid,
+                    note: line.creditNote ? "Con nota de crédito" : undefined,
+                  }))}
+                />
+              )}
+              {totalExcess > 0 && (
+                <ExcessSettlementFields
+                  totalExcess={totalExcess}
+                  value={settlement}
+                  onChange={(value) => {
+                    setSettlement(value);
+                    setRefusal(null);
+                  }}
+                  errors={errors}
+                  disabled={saving}
                 />
               )}
               {preview.siblings.length > 0 && (
@@ -224,7 +292,12 @@ const EnrollmentWithdrawDialog = ({
           variant="contained"
           color="warning"
           onClick={confirm}
-          disabled={!preview || refusedForGood || saving}
+          disabled={
+            !preview ||
+            refusedForGood ||
+            saving ||
+            !settlementReady(totalExcess, settlement)
+          }
         >
           {saving ? "Retirando…" : "Confirmar retiro"}
         </Button>

@@ -295,7 +295,7 @@ The body every `POST` returns alongside `201 Created`: the id of the row just wr
       "studentId": 1,
       "fullName": "…",        // string | null
       "conceptName": "…",     // string | null
-      "repriceFromMonth": 1   // number | null — The first billable month starting after the withdrawal; null if none.
+      "repriceFromMonth": 1   // number | null — The first billable month starting after both the withdrawal and today, the month a reprice made that day starts from; null if none.
     }
   ]
 }

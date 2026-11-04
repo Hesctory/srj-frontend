@@ -110,9 +110,14 @@ const makeDataProvider = (preview: StudentDeletionPreview = deletable) => ({
   update: vi.fn(async () => ({ data: { id: 25 } })),
   delete: vi.fn(async () => ({ data: { id: 4 } })),
   previewStudentDeletion: vi.fn(async () => preview),
-  previewEnrollmentWithdrawal: vi.fn(async () => ({
+  // Without a date the API answers for its today.
+  previewEnrollmentWithdrawal: vi.fn(async (_id: unknown, date: unknown) => ({
+    withdrawalDate: (date as string | null) ?? "2027-04-20",
+    minDate: "2027-04-05",
+    maxDate: "2027-05-05",
+    totalExcess: 0,
     voided: [{ month: 6, description: "Pensión Junio - 2027", net: 500 }],
-    keptPaid: [],
+    reversed: [],
     siblings: [],
   })),
 });
@@ -358,6 +363,8 @@ describe("Deleting a student", { timeout: 60_000 }, () => {
     );
 
     const field = await screen.findByLabelText(/Fecha de retiro/);
+    await waitFor(() => expect(field).toHaveValue("2027-04-20"));
+    await user.clear(field);
     await user.type(field, "2027-05-01");
     // The preview waits for the typing to settle.
     expect(

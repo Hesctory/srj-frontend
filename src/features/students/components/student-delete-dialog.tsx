@@ -27,10 +27,11 @@ import StudentDeleteSummary from "./student-delete-summary";
 import {
   ENROLLMENT_STATE,
   annulledMessage,
+  issuedDocumentsNote,
   updateBodyOf,
 } from "@/features/students/utils/enrollment-update";
 import { serverErrorMessage } from "@/features/students/utils/server-errors";
-import type { EnrollmentSummary } from "@/types/enrollment";
+import type { EnrollmentSummary, UpdateEnrollment } from "@/types/enrollment";
 import type { StudentDeletionOutcome } from "@/types/student";
 
 type Values = Record<string, unknown>;
@@ -180,16 +181,16 @@ const StudentDeleteDialog = ({
     }
   };
 
-  const withdraw = async (withdrawalDate: string) => {
-    await dataProvider.update("enrollments", {
+  const withdraw = async (extra: Partial<UpdateEnrollment>) => {
+    const { data } = await dataProvider.update("enrollments", {
       id: enrollmentId!,
       data: updateBodyOf(enrollment as Values, {
         stateName: ENROLLMENT_STATE.withdrawn,
-        withdrawalDate,
+        ...extra,
       }),
       previousData: enrollment as RaRecord,
     });
-    say("Estudiante retirado");
+    say(`Estudiante retirado${issuedDocumentsNote(data)}`);
   };
 
   if (withdrawing && enrollmentId !== null && year !== undefined) {

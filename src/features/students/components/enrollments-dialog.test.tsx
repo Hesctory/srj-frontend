@@ -34,6 +34,10 @@ const lookups: Record<string, { id: number; [key: string]: unknown }[]> = {
     { id: 2, name: "Dscto hermano" },
   ],
   "required-documents": [],
+  "payment-methods": [
+    { id: 1, name: "Efectivo" },
+    { id: 2, name: "Yape" },
+  ],
 };
 
 const detail = {
@@ -72,13 +76,20 @@ const line = (
   newGross: 500,
   newDiscount: 20,
   newNet: 480,
+  paid: 0,
+  excess: 0,
+  creditNote: false,
   outcome,
   ...patch,
 });
 
 const withdrawal: EnrollmentWithdrawalPreview = {
+  withdrawalDate: "2027-04-20",
+  minDate: "2027-04-05",
+  maxDate: "2027-05-05",
+  totalExcess: 0,
   voided: [{ month: 6, description: "Pensión Junio - 2027", net: 500 }],
-  keptPaid: [{ month: 7, description: "Pensión Julio - 2027", net: 500 }],
+  reversed: [],
   siblings: [
     {
       enrollmentId: 30,
@@ -121,18 +132,22 @@ const makeDataProvider = (state = "Activa") => {
       enrollmentDate: "2027-04-20",
       enrollmentMonthChoice: 4,
     })),
-    previewEnrollmentChange: vi.fn(
-      async (_id: unknown, body: { repriceFromMonth: number }) => ({
-        lines: [
-          line(3, "PAID"),
-          ...(body.repriceFromMonth > 4
-            ? [line(4, "BEFORE_FROM_MONTH")]
-            : [line(4, "REPRICED")]),
-          line(5, "REPRICED"),
-        ],
+    previewEnrollmentChange: vi.fn(async () => ({
+      fromMonth: 4 as number | null,
+      totalExcess: 0,
+      lines: [
+        line(3, "IN_FORCE"),
+        line(4, "REPRICED"),
+        line(5, "UNCHANGED", { newNet: 500 }),
+      ],
+    })),
+    // Without a date the API answers for its today.
+    previewEnrollmentWithdrawal: vi.fn(
+      async (_id: unknown, date: string | null) => ({
+        ...withdrawal,
+        withdrawalDate: date ?? withdrawal.withdrawalDate,
       }),
     ),
-    previewEnrollmentWithdrawal: vi.fn(async () => withdrawal),
   };
 };
 
@@ -213,7 +228,7 @@ describe("EnrollmentsDialog — editing", { timeout: 30_000 }, () => {
     );
   });
 
-  it("saves a change of section with no month and no preview", async () => {
+  it("saves a change of section with no preview", async () => {
     const dataProvider = makeDataProvider();
     const user = await renderDialog(dataProvider);
 
@@ -225,50 +240,42 @@ describe("EnrollmentsDialog — editing", { timeout: 30_000 }, () => {
     expect(dataProvider.previewEnrollmentChange).not.toHaveBeenCalled();
   });
 
-  it("asks the month on a change of concept and sends it on the PUT", async () => {
+  const repriceDialog = () =>
+    screen.findByRole("dialog", { name: "Cambiar el precio de la matrícula" });
+  const confirmIn = (dialog: HTMLElement) =>
+    within(dialog).getByRole("button", { name: "Guardar cambios" });
+
+  it("shows the new prices from the API's month and saves with no settlement", async () => {
     const dataProvider = makeDataProvider();
     const user = await renderDialog(dataProvider);
 
     await pick(user, /Concepto de Cobro/, "Dscto hermano");
     await save(user);
 
-    const dialog = await screen.findByRole("dialog", {
-      name: "Cambiar el precio de la matrícula",
+    const dialog = await repriceDialog();
+    expect(await within(dialog).findByText(/rige desde abril/)).toBeVisible();
+    expect(dataProvider.previewEnrollmentChange).toHaveBeenLastCalledWith(25, {
+      levelId: 1,
+      shiftId: 1,
+      schoolFeeConceptId: 2,
     });
-    const confirm = within(dialog).getByRole("button", {
-      name: "Guardar cambios",
-    });
-    expect(confirm).toBeDisabled();
-
-    await pick(user, /Nuevo precio desde/, "mayo");
-
     expect(
-      await screen.findByText("1 pensión cambia de precio."),
+      within(dialog).getByText(/1 pensión cambia de precio/),
     ).toBeVisible();
-    await waitFor(() =>
-      expect(dataProvider.previewEnrollmentChange).toHaveBeenLastCalledWith(
-        25,
-        {
-          levelId: 1,
-          shiftId: 1,
-          schoolFeeConceptId: 2,
-          repriceFromMonth: 5,
-        },
-      ),
-    );
-    expect(within(dialog).getByText("Con pago, se mantiene")).toBeVisible();
-    expect(within(dialog).getByText("Antes del mes elegido")).toBeVisible();
+    expect(within(dialog).getByText("En curso, se mantiene")).toBeVisible();
+    expect(within(dialog).getByText("Sin cambio")).toBeVisible();
     expect(
       within(dialog).getByText(`${money(500)} → ${money(480)}`),
     ).toBeVisible();
+    // Nothing paid is given back, so nothing about the money is asked.
+    expect(within(dialog).queryByText(/Saldo a favor/)).toBeNull();
 
-    await user.click(confirm);
+    await user.click(confirmIn(dialog));
 
     await waitFor(() => expect(dataProvider.update).toHaveBeenCalledTimes(1));
     expect(lastBody(dataProvider)).toEqual({
       ...placement,
       schoolFeeConceptId: 2,
-      repriceFromMonth: 5,
     });
     await waitFor(() =>
       expect(
@@ -279,7 +286,7 @@ describe("EnrollmentsDialog — editing", { timeout: 30_000 }, () => {
     );
   });
 
-  it("asks the month on a change of shift", async () => {
+  it("asks before saving a change of shift", async () => {
     const dataProvider = makeDataProvider();
     const user = await renderDialog(dataProvider);
 
@@ -287,33 +294,35 @@ describe("EnrollmentsDialog — editing", { timeout: 30_000 }, () => {
     await pick(user, /Sección/, "A");
     await save(user);
 
-    expect(
-      await screen.findByRole("dialog", {
-        name: "Cambiar el precio de la matrícula",
-      }),
-    ).toBeVisible();
+    expect(await repriceDialog()).toBeVisible();
   });
 
-  it("does not save when staff go back from the month", async () => {
+  it("does not save when staff go back", async () => {
     const dataProvider = makeDataProvider();
     const user = await renderDialog(dataProvider);
 
     await pick(user, /Concepto de Cobro/, "Dscto hermano");
     await save(user);
-    const dialog = await screen.findByRole("dialog", {
-      name: "Cambiar el precio de la matrícula",
-    });
+    const dialog = await repriceDialog();
     await user.click(within(dialog).getByRole("button", { name: "Volver" }));
 
     await waitFor(() =>
-      expect(screen.queryByText("Nuevo precio desde")).toBeNull(),
+      expect(
+        screen.queryByRole("dialog", {
+          name: "Cambiar el precio de la matrícula",
+        }),
+      ).toBeNull(),
     );
     expect(dataProvider.update).not.toHaveBeenCalled();
   });
 
-  it("sends no month when no pensión is left to price", async () => {
+  it("saves the change when no pensión is left to price", async () => {
     const dataProvider = makeDataProvider();
-    dataProvider.previewEnrollmentChange.mockResolvedValue({ lines: [] });
+    dataProvider.previewEnrollmentChange.mockResolvedValue({
+      fromMonth: null,
+      totalExcess: 0,
+      lines: [],
+    });
     const user = await renderDialog(dataProvider);
 
     await pick(user, /Concepto de Cobro/, "Dscto hermano");
@@ -322,18 +331,132 @@ describe("EnrollmentsDialog — editing", { timeout: 30_000 }, () => {
     expect(
       await screen.findByText(/no tiene pensiones vigentes/),
     ).toBeVisible();
-    const dialog = screen.getByRole("dialog", {
-      name: "Cambiar el precio de la matrícula",
-    });
-    await user.click(
-      within(dialog).getByRole("button", { name: "Guardar cambios" }),
-    );
+    await user.click(confirmIn(await repriceDialog()));
 
     await waitFor(() => expect(dataProvider.update).toHaveBeenCalledTimes(1));
     expect(lastBody(dataProvider)).toEqual({
       ...placement,
       schoolFeeConceptId: 2,
     });
+  });
+
+  it("says when every month has started", async () => {
+    const dataProvider = makeDataProvider();
+    dataProvider.previewEnrollmentChange.mockResolvedValue({
+      fromMonth: null,
+      totalExcess: 0,
+      lines: [line(12, "IN_FORCE")],
+    });
+    const user = await renderDialog(dataProvider);
+
+    await pick(user, /Concepto de Cobro/, "Dscto hermano");
+    await save(user);
+
+    expect(
+      await screen.findByText(/Todos los meses ya empezaron/),
+    ).toBeVisible();
+  });
+
+  it("asks how a paid month's excess goes back, and sends it", async () => {
+    const dataProvider = makeDataProvider();
+    dataProvider.previewEnrollmentChange.mockResolvedValue({
+      fromMonth: 4,
+      totalExcess: 20,
+      lines: [line(4, "REPRICED", { paid: 500, excess: 20, creditNote: true })],
+    });
+    const user = await renderDialog(dataProvider);
+
+    await pick(user, /Concepto de Cobro/, "Dscto hermano");
+    await save(user);
+    const dialog = await repriceDialog();
+
+    expect(
+      await within(dialog).findByText(
+        new RegExp(`se devuelven ${money(20)} con nota de crédito`),
+      ),
+    ).toBeVisible();
+    expect(
+      within(dialog).getByText(new RegExp(`Saldo a favor.*${money(20)}`)),
+    ).toBeVisible();
+    expect(confirmIn(dialog)).toBeDisabled();
+
+    await user.click(within(dialog).getByRole("radio", { name: /Devolverlo/ }));
+    // A refund goes out by some method.
+    expect(confirmIn(dialog)).toBeDisabled();
+    await pick(user, /Medio de devolución/, "Yape");
+    await user.click(confirmIn(dialog));
+
+    await waitFor(() => expect(dataProvider.update).toHaveBeenCalledTimes(1));
+    expect(lastBody(dataProvider)).toEqual({
+      ...placement,
+      schoolFeeConceptId: 2,
+      excessTreatment: "REFUND",
+      refundPaymentMethodId: 2,
+    });
+  });
+
+  it("keeps the dialog open on a refused settlement, for the method to be added", async () => {
+    const dataProvider = makeDataProvider();
+    dataProvider.previewEnrollmentChange.mockResolvedValue({
+      fromMonth: 4,
+      totalExcess: 20,
+      lines: [line(4, "REPRICED", { paid: 500, excess: 20 })],
+    });
+    const message = "Indique el medio por el que se devuelve el dinero.";
+    dataProvider.update.mockRejectedValueOnce(
+      invalid({ refundPaymentMethodId: message }),
+    );
+    const user = await renderDialog(dataProvider);
+
+    await pick(user, /Concepto de Cobro/, "Dscto hermano");
+    await save(user);
+    const dialog = await repriceDialog();
+    await user.click(
+      await within(dialog).findByRole("radio", { name: /Descontarlo/ }),
+    );
+    // A credit may find debt for all of it: no method is needed up front.
+    await user.click(confirmIn(dialog));
+
+    await waitFor(() => expect(dataProvider.update).toHaveBeenCalledTimes(1));
+    expect(lastBody(dataProvider)).toMatchObject({
+      excessTreatment: "CREDIT",
+      refundPaymentMethodId: null,
+    });
+    expect(await within(dialog).findByText(message)).toBeVisible();
+
+    await pick(user, /Medio de devolución/, "Efectivo");
+    await user.click(confirmIn(dialog));
+
+    await waitFor(() => expect(dataProvider.update).toHaveBeenCalledTimes(2));
+    expect(lastBody(dataProvider)).toMatchObject({
+      excessTreatment: "CREDIT",
+      refundPaymentMethodId: 1,
+    });
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("dialog", {
+          name: "Cambiar el precio de la matrícula",
+        }),
+      ).toBeNull(),
+    );
+  });
+
+  it("says when the change issued comprobantes still to send", async () => {
+    const dataProvider = makeDataProvider();
+    dataProvider.update.mockResolvedValue({
+      data: { ...detail, issuedDocumentIds: [7, 8] },
+    } as never);
+    const user = await renderDialog(dataProvider);
+
+    await pick(user, /Concepto de Cobro/, "Dscto hermano");
+    await save(user);
+    const dialog = await repriceDialog();
+    await within(dialog).findByText(/rige desde abril/);
+    await user.click(confirmIn(dialog));
+
+    expect(
+      await screen.findByText(/Se emitieron 2 comprobantes/),
+    ).toBeVisible();
   });
 
   it("shows why the change cannot be priced, and keeps it from saving", async () => {
@@ -349,12 +472,7 @@ describe("EnrollmentsDialog — editing", { timeout: 30_000 }, () => {
     expect(
       await screen.findByText("No hay tarifas configuradas."),
     ).toBeVisible();
-    const dialog = screen.getByRole("dialog", {
-      name: "Cambiar el precio de la matrícula",
-    });
-    expect(
-      within(dialog).getByRole("button", { name: "Guardar cambios" }),
-    ).toBeDisabled();
+    expect(confirmIn(await repriceDialog())).toBeDisabled();
   });
 
   it("asks again after a refused save, and not after a saved one", async () => {
@@ -363,31 +481,25 @@ describe("EnrollmentsDialog — editing", { timeout: 30_000 }, () => {
       conflict("Un cargo de la matrícula cambió mientras se procesaba."),
     );
     const user = await renderDialog(dataProvider);
-    const confirmMonth = async () => {
-      await pick(user, /Nuevo precio desde/, "mayo");
-      await screen.findByText("1 pensión cambia de precio.");
-      await user.click(
-        within(
-          screen.getByRole("dialog", {
-            name: "Cambiar el precio de la matrícula",
-          }),
-        ).getByRole("button", { name: "Guardar cambios" }),
-      );
+    const confirmChange = async () => {
+      const dialog = await repriceDialog();
+      await within(dialog).findByText(/rige desde abril/);
+      await user.click(confirmIn(dialog));
     };
 
     await pick(user, /Concepto de Cobro/, "Dscto hermano");
     await save(user);
-    await confirmMonth();
+    await confirmChange();
     expect(
       await screen.findByText(/cambió mientras se procesaba/),
     ).toBeVisible();
 
-    // Refused: the price still has not changed, so the month is asked again.
+    // Refused: the price still has not changed, so the change is shown again.
     await save(user);
-    await confirmMonth();
+    await confirmChange();
     await waitFor(() => expect(dataProvider.update).toHaveBeenCalledTimes(2));
 
-    // Saved: another save of the same values moves no price and sends no month.
+    // Saved: another save of the same values moves no price and asks nothing.
     await waitFor(() =>
       expect(
         screen.queryByRole("dialog", {
@@ -397,10 +509,7 @@ describe("EnrollmentsDialog — editing", { timeout: 30_000 }, () => {
     );
     await save(user);
     await waitFor(() => expect(dataProvider.update).toHaveBeenCalledTimes(3));
-    expect(lastBody(dataProvider)).toEqual({
-      ...placement,
-      schoolFeeConceptId: 2,
-    });
+    expect(dataProvider.previewEnrollmentChange).toHaveBeenCalledTimes(2);
   });
 
   it("warns about an unsaved edit, and locks annul and withdraw during a save", async () => {
@@ -564,14 +673,85 @@ describe("EnrollmentsDialog — withdrawing", { timeout: 30_000 }, () => {
   const confirmButton = () =>
     screen.getByRole("button", { name: "Confirmar retiro" });
 
-  it("needs a date before it can be confirmed", async () => {
+  it("proposes the API's today, within the dates it takes", async () => {
     const dataProvider = makeDataProvider();
     const user = await renderDialog(dataProvider);
 
     await user.click(await screen.findByRole("button", { name: "Retirar" }));
 
+    const field = await screen.findByLabelText(/Fecha de retiro/);
+    await waitFor(() => expect(field).toHaveValue("2027-04-20"));
+    expect(dataProvider.previewEnrollmentWithdrawal).toHaveBeenCalledWith(
+      25,
+      null,
+    );
+    expect(field).toHaveAttribute("min", "2027-04-05");
+    expect(field).toHaveAttribute("max", "2027-05-05");
+    expect(await screen.findByText("Pensión Junio - 2027")).toBeVisible();
+
+    await user.click(confirmButton());
+    await waitFor(() => expect(dataProvider.update).toHaveBeenCalledTimes(1));
+    expect(lastBody(dataProvider)).toEqual({
+      ...placement,
+      stateName: "Retirada",
+      withdrawalDate: "2027-04-20",
+    });
+  });
+
+  it("needs a date when staff clear it", async () => {
+    const user = await renderDialog(makeDataProvider());
+
+    await user.click(await screen.findByRole("button", { name: "Retirar" }));
+    const field = await screen.findByLabelText(/Fecha de retiro/);
+    await waitFor(() => expect(field).toHaveValue("2027-04-20"));
+    await user.clear(field);
+
+    expect(await screen.findByText(/Indica la fecha/)).toBeVisible();
     expect(confirmButton()).toBeDisabled();
-    expect(dataProvider.previewEnrollmentWithdrawal).not.toHaveBeenCalled();
+  });
+
+  it("gives back what paid months after the date hold, as staff choose", async () => {
+    const dataProvider = makeDataProvider();
+    dataProvider.previewEnrollmentWithdrawal.mockImplementation(
+      async (_id: unknown, date: string | null) => ({
+        ...withdrawal,
+        withdrawalDate: date ?? withdrawal.withdrawalDate,
+        totalExcess: 480,
+        reversed: [
+          {
+            month: 7,
+            description: "Pensión Julio - 2027",
+            net: 480,
+            paid: 480,
+            excess: 480,
+            creditNote: true,
+          },
+        ],
+        siblings: [],
+      }),
+    );
+    const user = await renderDialog(dataProvider);
+
+    await openWithDate(user);
+
+    expect(await screen.findByText("Pensión Julio - 2027")).toBeVisible();
+    expect(screen.getByText("Con nota de crédito")).toBeVisible();
+    expect(
+      screen.getByText(new RegExp(`Saldo a favor.*${money(480)}`)),
+    ).toBeVisible();
+    expect(confirmButton()).toBeDisabled();
+
+    await user.click(screen.getByRole("radio", { name: /Descontarlo/ }));
+    await user.click(confirmButton());
+
+    await waitFor(() => expect(dataProvider.update).toHaveBeenCalledTimes(1));
+    expect(lastBody(dataProvider)).toEqual({
+      ...placement,
+      stateName: "Retirada",
+      withdrawalDate: "2027-05-01",
+      excessTreatment: "CREDIT",
+      refundPaymentMethodId: null,
+    });
   });
 
   it("shows what stays and what goes, then sends the date", async () => {
@@ -586,7 +766,6 @@ describe("EnrollmentsDialog — withdrawing", { timeout: 30_000 }, () => {
       "2027-05-01",
     );
     expect(screen.getByText(/Las pensiones hasta mayo/)).toBeVisible();
-    expect(screen.getByText("Pensión Julio - 2027")).toBeVisible();
     expect(screen.getByText(/revisar su precio desde junio/)).toBeVisible();
 
     await user.click(confirmButton());
@@ -617,8 +796,8 @@ describe("EnrollmentsDialog — withdrawing", { timeout: 30_000 }, () => {
   it("says when a sibling has no month left to change", async () => {
     const dataProvider = makeDataProvider();
     dataProvider.previewEnrollmentWithdrawal.mockResolvedValue({
+      ...withdrawal,
       voided: [],
-      keptPaid: [],
       siblings: [{ ...withdrawal.siblings[0], repriceFromMonth: null }],
     });
     const user = await renderDialog(dataProvider);

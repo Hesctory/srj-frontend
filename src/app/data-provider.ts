@@ -274,14 +274,15 @@ const enrollments = {
       `/enrollments/${enrollmentId}/change-preview`,
       body,
     ),
+  /** Without a date the API takes today, and says which dates it accepts. */
   previewEnrollmentWithdrawal: (
     enrollmentId: Identifier,
-    withdrawalDate: string,
+    withdrawalDate: string | null,
   ) =>
     sendJson<EnrollmentWithdrawalPreview>(
       "POST",
       `/enrollments/${enrollmentId}/withdrawal-preview`,
-      { withdrawalDate },
+      withdrawalDate === null ? {} : { withdrawalDate },
     ),
 };
 

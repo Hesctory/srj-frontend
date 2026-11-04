@@ -18,6 +18,7 @@ import {
 import {
   ENROLLMENT_STATE,
   annulledMessage,
+  issuedDocumentsNote,
   updateBodyOf,
 } from "@/features/students/utils/enrollment-update";
 import {
@@ -26,7 +27,8 @@ import {
   splitFieldErrors,
 } from "@/features/students/utils/server-errors";
 import { EnrollmentAccordionItem } from "./enrollment-accordion-item";
-import { EnrollmentSummary } from "@/types/enrollment";
+import { SETTLEMENT_FIELDS } from "./excess-settlement-fields";
+import type { EnrollmentSummary, UpdateEnrollment } from "@/types/enrollment";
 
 interface EnrollmentsDialogProps {
   open: boolean;
@@ -37,7 +39,15 @@ interface EnrollmentsDialogProps {
 type Values = Record<string, unknown>;
 
 /** Values the form keeps without showing an input for them. */
-const NOT_SHOWN = new Set(["documents", "repriceFromMonth"]);
+const NOT_SHOWN = new Set(["documents", ...SETTLEMENT_FIELDS]);
+
+/** The settlement's own messages, for the reprice dialog to show; null if none. */
+const settlementErrorsOf = (errors: Record<string, string>) => {
+  const found = Object.entries(errors).filter(([field]) =>
+    SETTLEMENT_FIELDS.includes(field),
+  );
+  return found.length > 0 ? Object.fromEntries(found) : null;
+};
 
 export const EnrollmentsDialog = ({
   open,
@@ -72,18 +82,15 @@ export const EnrollmentsDialog = ({
     id: Identifier,
     values: Values,
     previousData: Values,
-    repriceFromMonth: number | null,
+    extra: Partial<UpdateEnrollment>,
   ) => {
     try {
-      await dataProvider.update("enrollments", {
+      const { data } = await dataProvider.update("enrollments", {
         id,
-        data: updateBodyOf(
-          values,
-          repriceFromMonth === null ? {} : { repriceFromMonth },
-        ),
+        data: updateBodyOf(values, extra),
         previousData,
       });
-      say("Matrícula actualizada", "success");
+      say(`Matrícula actualizada${issuedDocumentsNote(data)}`, "success");
       await refetch();
       return { saved: true };
     } catch (error) {
@@ -92,6 +99,8 @@ export const EnrollmentsDialog = ({
         refused(error, "No se pudo guardar la matrícula.");
         return { saved: false };
       }
+      const settlementErrors = settlementErrorsOf(errors);
+      if (settlementErrors) return { saved: false, settlementErrors };
       const { onFields, elsewhere } = splitFieldErrors(
         errors,
         (field) => !NOT_SHOWN.has(field) && values[field] !== undefined,
@@ -118,17 +127,17 @@ export const EnrollmentsDialog = ({
   const handleWithdraw = async (
     id: Identifier,
     detail: Values,
-    withdrawalDate: string,
+    extra: Partial<UpdateEnrollment>,
   ) => {
-    await dataProvider.update("enrollments", {
+    const { data } = await dataProvider.update("enrollments", {
       id,
       data: updateBodyOf(detail, {
         stateName: ENROLLMENT_STATE.withdrawn,
-        withdrawalDate,
+        ...extra,
       }),
       previousData: detail,
     });
-    say("Estudiante retirado", "success");
+    say(`Estudiante retirado${issuedDocumentsNote(data)}`, "success");
     await refetch();
   };
 

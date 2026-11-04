@@ -23,7 +23,7 @@ import {
   ENROLLMENT_STATE,
   changesPrice,
 } from "@/features/students/utils/enrollment-update";
-import { EnrollmentSummary } from "@/types/enrollment";
+import type { EnrollmentSummary, UpdateEnrollment } from "@/types/enrollment";
 
 type Values = Record<string, unknown>;
 
@@ -31,6 +31,8 @@ export interface SaveResult {
   saved: boolean;
   /** Messages for the fields the form shows. */
   errors?: Record<string, string>;
+  /** Messages for how the money given back is settled, asked in the reprice dialog. */
+  settlementErrors?: Record<string, string>;
 }
 
 interface EnrollmentAccordionItemProps {
@@ -41,14 +43,14 @@ interface EnrollmentAccordionItemProps {
     id: Identifier,
     values: Values,
     previousData: Values,
-    repriceFromMonth: number | null,
+    extra: Partial<UpdateEnrollment>,
   ) => Promise<SaveResult>;
   onCancel: (id: Identifier, detail: Values) => Promise<void>;
   /** A refusal is thrown back, for the dialog to show. */
   onWithdraw: (
     id: Identifier,
     detail: Values,
-    withdrawalDate: string,
+    extra: Partial<UpdateEnrollment>,
   ) => Promise<void>;
   onReactivate: (
     id: Identifier,
@@ -83,9 +85,12 @@ export const EnrollmentAccordionItem = ({
   const [reactivating, setReactivating] = useState(false);
   const [proposal, setProposal] = useState<Values | null>(null);
   const [saving, setSaving] = useState(false);
-  // The submit stays pending while staff choose the month, so a field error
-  // from the save still lands through the form's own return value.
-  const decide = useRef<(month: number | null | undefined) => void>(
+  const [settlementErrors, setSettlementErrors] = useState<
+    Record<string, string> | undefined
+  >();
+  // The submit stays pending while staff look at the new prices, so a field
+  // error from the save still lands through the form's own return value.
+  const decide = useRef<(extra: Partial<UpdateEnrollment> | undefined) => void>(
     () => undefined,
   );
   const { detail, isLoading, fetchDetail, updateDetail } = useEnrollmentDetail(
@@ -102,38 +107,39 @@ export const EnrollmentAccordionItem = ({
   const isCancelled = enrollment.state === ENROLLMENT_STATE.cancelled;
   const isWithdrawn = enrollment.state === ENROLLMENT_STATE.withdrawn;
 
-  /** The month the new price starts from; `undefined` if they went back. */
-  const askMonth = (values: Values) =>
-    new Promise<number | null | undefined>((resolve) => {
+  /** How the money given back is settled; `undefined` if they went back. */
+  const askSettlement = (values: Values) =>
+    new Promise<Partial<UpdateEnrollment> | undefined>((resolve) => {
       decide.current = resolve;
       setProposal(values);
     });
 
   const handleSave = async (values: Values) => {
-    let repriceFromMonth: number | null = null;
     // Anything else is the API's to refuse: only an Activa takes a new price.
-    if (isActive && changesPrice(values, detail!)) {
-      const month = await askMonth(values);
-      if (month === undefined) {
-        setProposal(null);
-        return;
-      }
-      repriceFromMonth = month;
-    }
-
-    setSaving(true);
+    const repricing = isActive && changesPrice(values, detail!);
     try {
-      const { saved, errors } = await onSave(
-        enrollment.id,
-        values,
-        detail!,
-        repriceFromMonth,
-      );
-      if (saved) updateDetail({ ...detail, ...values });
-      return errors;
+      // A refusal on the settlement asks it again, the dialog still open.
+      for (;;) {
+        const extra = repricing ? await askSettlement(values) : {};
+        if (extra === undefined) return;
+
+        setSaving(true);
+        setSettlementErrors(undefined);
+        try {
+          const result = await onSave(enrollment.id, values, detail!, extra);
+          if (result.settlementErrors && repricing) {
+            setSettlementErrors(result.settlementErrors);
+            continue;
+          }
+          if (result.saved) updateDetail({ ...detail, ...values });
+          return result.errors;
+        } finally {
+          setSaving(false);
+        }
+      }
     } finally {
-      setSaving(false);
       setProposal(null);
+      setSettlementErrors(undefined);
     }
   };
 
@@ -275,7 +281,8 @@ export const EnrollmentAccordionItem = ({
                 shiftId={Number(proposal.shiftId)}
                 schoolFeeConceptId={Number(proposal.schoolFeeConceptId)}
                 saving={saving}
-                onConfirm={(month) => decide.current(month)}
+                errors={settlementErrors}
+                onConfirm={(extra) => decide.current(extra)}
                 onCancel={() => decide.current(undefined)}
               />
             )}
@@ -283,7 +290,7 @@ export const EnrollmentAccordionItem = ({
               <EnrollmentWithdrawDialog
                 enrollmentId={enrollment.id}
                 year={Number(enrollment.year)}
-                onConfirm={(date) => onWithdraw(enrollment.id, detail, date)}
+                onConfirm={(extra) => onWithdraw(enrollment.id, detail, extra)}
                 onCancel={() => setWithdrawing(false)}
                 onDone={closeWithdrawal}
               />
