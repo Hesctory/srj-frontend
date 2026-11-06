@@ -17,7 +17,7 @@ npm run lint         # ESLint with auto-fix
 npm run lint:check   # ESLint, no fixing, zero warnings allowed
 npm run format       # Prettier formatting
 npm run test         # Vitest, once (test:watch to watch)
-npm run verify       # type-check + lint:check + test + build — the definition of "passes"
+npm run verify       # type-check + lint:check + test + build + check:bundle — the definition of "passes"
 ```
 
 ## GIT
@@ -84,6 +84,7 @@ src/
 │   └── buttons/             # BackToListButton
 ├── types/                   # Shared TypeScript interfaces (flat, no domain layers)
 ├── utils/                   # The only home for shared utilities (date, token, money, blob-file)
+├── workbench/               # DEV ONLY: console for the backend's workbench host (see below)
 └── index.tsx                # Entry point (imports @/app/App)
 ```
 
@@ -99,6 +100,7 @@ src/
 - **Data layer** is flat: shared types in `src/types/`, utilities in `src/utils/` (do not create other shared `utils` folders). No Clean Architecture layers (UseCases/Repositories were removed).
 - **Backend**: the API at `http://localhost:4000/api` (`API_URL` in `src/app/data-provider.ts`; `VITE_API_URL` in `.env.local` points elsewhere). There is no mock backend: screens are built and checked against the real API, running on a development database of synthetic data.
 - **Data access: only `src/app/` talks HTTP.** Every backend call goes through the dataProvider in `src/app/data-provider.ts`. An endpoint that is not plain REST CRUD becomes a URL mapping or a custom method there, called from features with `useDataProvider()` inside `useQuery`/`useMutation` from `@tanstack/react-query`. Features never import `httpClient`/`API_URL`, never call `fetch`, and never create an `api/` folder. The one remaining `api/` folder (`billing/api`) is legacy debt — do not copy it.
+- **Workbench (development only)**: `src/workbench/` is a floating console that drives the backend's workbench host (`tools/Workbench`, fixed at `http://127.0.0.1:4100`): business date, Nubefact mode, snapshots, and preparing students, enrollments and payments. It has its own fetch client (never the dataProvider, never the JWT). It must never ship: the only door into it is `src/shared/components/dev-workbench.tsx` (a dynamic `import()` behind `import.meta.env.DEV`); ESLint refuses a static `@/workbench` import, and `npm run check:bundle` (part of `verify`) fails when its URL or the `SRJ_WORKBENCH_DEV_ONLY` marker appears in `dist/`. Open the dev app on port 5173 (the user's clone) or 5180 (the agent's, see `ui-check`), at `localhost` or `127.0.0.1`; the host refuses other origins. Execute sends the previewed business date and mode as `expect`, and the host refuses it (409) if either changed.
 - **Permissions are not implemented yet.** `user.roles` is exposed through `authProvider.getPermissions`, but nothing enforces it: the menu has no permission fields. When a feature needs role checks, create the single source of truth in `src/app/permissions.ts` and read it from there — never inline role checks in components.
 
 ## React Admin conventions
@@ -123,9 +125,10 @@ src/
 
 Rules that a machine can check are not only written here — they fail loudly, and every failure message says how to fix it:
 
-- **ESLint** (`eslint.config.mjs`, section "Architecture rules"): no HTTP outside `src/app/`, no `Datagrid`, no guessers, no `../` imports, 400-line file budget.
+- **ESLint** (`eslint.config.mjs`, section "Architecture rules"): no HTTP outside `src/app/` (and the dev-only `src/workbench/`), no static `@/workbench` import, no `Datagrid`, no guessers, no `../` imports, 400-line file budget.
 - **Structural tests** (`src/test/architecture.test.ts`): no `api/` folders, kebab-case names, CRUDToolBar on every Create/Edit, pessimistic Create, debounced filtered Lists, FormGrid instead of flex rows in forms, `src/utils` as the only shared utils folder.
 - **Hooks** (`.claude/settings.json` → `.claude/hooks/`): leak-scan and lint each edited file; block the end of a turn on a red type-check, lint or test.
+- **Dev-only bundle sensor** (`scripts/check-dev-only-bundle.mjs`, in `verify`): the workbench never reaches `dist/`.
 - **Leak scan** (`.gitleaks.toml`, `.githooks/pre-push`, CI `leak-scan`): no secret and no real-shaped personal data in any commit (see **Public repository**).
 - **LEGACY lists** in both files name violations that predate a rule. They are debt, not precedent: never copy those files' patterns, never add an entry without the user's approval, and delete an entry when its file is fixed.
 - **Contracts** (`Contracts/`, see its README): the source of truth for endpoints and filters. If a contract lacks something the screen needs, ask — do not invent an endpoint.

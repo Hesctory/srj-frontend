@@ -48,11 +48,24 @@ const PARENT_IMPORT_PATTERN = {
     "Relative imports only go down (./). Use the @/ alias instead of ../ (CLAUDE.md → Imports).",
 };
 
+// The workbench (src/workbench) is a development tool that must never reach
+// the production bundle. Outside its folder it is loaded only with a dynamic
+// import() behind `import.meta.env.DEV` (see src/shared/components/
+// dev-workbench.tsx); a static import would put it in every build.
+// scripts/check-dev-only-bundle.mjs proves the result after `vite build`.
+const WORKBENCH_IMPORT_PATTERN = {
+  regex: "^@/workbench(/|$)",
+  message:
+    "src/workbench is development-only. Load it with a dynamic import() behind " +
+    "`if (import.meta.env.DEV)`, as src/shared/components/dev-workbench.tsx does — " +
+    "never a static import.",
+};
+
 const restrictedImports = (...paths) => [
   "error",
   {
     paths: paths.map((key) => restrictedPaths[key]),
-    patterns: [PARENT_IMPORT_PATTERN],
+    patterns: [PARENT_IMPORT_PATTERN, WORKBENCH_IMPORT_PATTERN],
   },
 ];
 
@@ -188,6 +201,27 @@ export default defineConfig([
     files: ["src/app/**/*.ts", "src/app/**/*.tsx"],
     rules: {
       "no-restricted-imports": restrictedImports("datagrid", "guessers"),
+      "no-restricted-globals": "off",
+    },
+  },
+  {
+    name: "architecture/workbench",
+    // The dev-only workbench talks to its own local host (127.0.0.1:4100),
+    // never to the app's backend, so it has its own fetch client and imports
+    // itself freely.
+    files: ["src/workbench/**/*.ts", "src/workbench/**/*.tsx"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            restrictedPaths.httpInternals,
+            restrictedPaths.datagrid,
+            restrictedPaths.guessers,
+          ],
+          patterns: [PARENT_IMPORT_PATTERN],
+        },
+      ],
       "no-restricted-globals": "off",
     },
   },

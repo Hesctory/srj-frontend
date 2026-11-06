@@ -4,14 +4,15 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "check:bundle": "node scripts/check-dev-only-bundle.mjs dist",
     "serve": "vite preview",
     "type-check": "tsc -p tsconfig.app.json --noEmit && tsc -p tsconfig.node.json --noEmit",
-    "lint": "eslint --fix ./src",
-    "lint:check": "eslint ./src --max-warnings 0",
-    "format": "prettier --write ./src",
+    "lint": "eslint --fix ./src ./scripts",
+    "lint:check": "eslint ./src ./scripts --max-warnings 0",
+    "format": "prettier --write ./src ./scripts",
     "test": "vitest run",
     "test:watch": "vitest",
-    "verify": "npm run type-check && npm run lint:check && npm run test && npm run build"
+    "verify": "npm run type-check && npm run lint:check && npm run test && npm run build && npm run check:bundle"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",

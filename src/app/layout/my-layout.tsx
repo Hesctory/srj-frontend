@@ -8,6 +8,7 @@ import {
   UserMenu,
 } from "react-admin";
 import { Box } from "@mui/material";
+import { DevWorkbenchConsole } from "@/shared/components/dev-workbench";
 import { MyMenu } from "./my-menu";
 
 /**
@@ -119,5 +120,7 @@ export const MyLayout = ({ children }: { children: ReactNode }) => (
     </Box>
 
     <CheckForApplicationUpdate />
+    {/* Development only: renders nothing in a production build. */}
+    <DevWorkbenchConsole />
   </Box>
 );
