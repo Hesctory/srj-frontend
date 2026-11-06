@@ -27,6 +27,8 @@ export interface WorkspaceStatus {
   backendUrl: string;
   realSendsEver: boolean;
   realUnavailableReason: string | null;
+  /** SUNAT voucher code ("03") → last number the Nubefact account holds. */
+  realHighWater: Record<string, number>;
 }
 
 export interface WorkbenchOptions {

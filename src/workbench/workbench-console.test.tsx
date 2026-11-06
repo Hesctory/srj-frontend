@@ -31,6 +31,7 @@ const baseStatus = {
   frontendUrl: "http://localhost:5173",
   backendUrl: "http://localhost:4000",
   realSendsEver: false,
+  realHighWater: {},
   realUnavailableReason: "No test account in .env.",
 };
 

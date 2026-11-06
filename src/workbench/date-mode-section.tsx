@@ -121,6 +121,70 @@ const SimulatedQueue = () => {
   );
 };
 
+const VOUCHER_NAMES: Record<string, string> = {
+  "01": "Factura",
+  "03": "Boleta",
+  "07": "Nota de crédito",
+};
+
+const NubefactNumbering = () => {
+  const { status, operate } = useWorkbench();
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const highWater = status?.realHighWater ?? {};
+  const codes = Array.from(new Set([...Object.keys(highWater), "03"])).sort();
+
+  const set = async (voucherCode: string) => {
+    const text = drafts[voucherCode] ?? "";
+    if (text.trim() === "") return;
+    const result = await operate("POST", "/workspace/remote-numbering", {
+      voucherCode,
+      last: Number(text),
+    });
+    if (!result.ok) return;
+    setDrafts((current) => ({ ...current, [voucherCode]: "" }));
+  };
+
+  return (
+    <div>
+      <strong>Numeración en Nubefact</strong>
+      {codes.map((code) => {
+        const label = `${code} ${VOUCHER_NAMES[code] ?? ""}`.trim();
+        return (
+          <div className="wb-row" key={code}>
+            <span>
+              {label}: último <code>{highWater[code] ?? 0}</code>
+            </span>
+            <input
+              type="number"
+              min={0}
+              aria-label={`Último número de ${label}`}
+              value={drafts[code] ?? ""}
+              onChange={(event) =>
+                setDrafts((current) => ({
+                  ...current,
+                  [code]: event.target.value,
+                }))
+              }
+            />
+            <button
+              type="button"
+              aria-label={`Fijar ${label}`}
+              onClick={() => set(code)}
+              disabled={(drafts[code] ?? "") === ""}
+            >
+              Fijar
+            </button>
+          </div>
+        );
+      })}
+      <div className="wb-hint">
+        Ingresa el último número que Nubefact tiene para este tipo de documento
+        y serie (el error 21 lo indica).
+      </div>
+    </div>
+  );
+};
+
 export const ModeSection = () => {
   const { status, operate } = useWorkbench();
   const [selected, setSelected] = useState<NubefactMode | null>(null);
@@ -169,6 +233,7 @@ export const ModeSection = () => {
         borra.
       </div>
       {status?.mode === "simulated" && <SimulatedQueue />}
+      {status?.mode === "real" && <NubefactNumbering />}
     </Section>
   );
 };

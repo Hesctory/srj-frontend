@@ -32,6 +32,7 @@ const STATUS = {
   frontendUrl: "http://localhost:5173",
   backendUrl: "http://localhost:4000",
   realSendsEver: false,
+  realHighWater: {},
   realUnavailableReason: null,
 };
 
