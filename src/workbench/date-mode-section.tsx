@@ -58,7 +58,8 @@ export const DateSection = () => {
 };
 
 const SimulatedQueue = () => {
-  const { generation, track, showRefusal, clearMessages } = useWorkbench();
+  const { generation, status, track, showRefusal, clearMessages } =
+    useWorkbench();
   const [queue, setQueue] = useState<string[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -72,7 +73,9 @@ const SimulatedQueue = () => {
     return () => {
       current = false;
     };
-  }, [generation]);
+    // Reloaded with every status poll: a send from the app consumes the queue
+    // without the console knowing.
+  }, [generation, status]);
 
   const push = async (outcome: string) => {
     clearMessages();

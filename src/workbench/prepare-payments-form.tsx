@@ -28,7 +28,13 @@ export const PreparePaymentsForm = () => {
   const [enrollments, setEnrollments] = useState<Enrollments | null>(null);
   const [charges, setCharges] = useState<Charges | null>(null);
   const [loading, setLoading] = useState(false);
-  const [methodId, setMethodId] = useState("");
+  // Cash unless the user picks another method; no default when the
+  // workspace offers no "Efectivo".
+  const [methodChoice, setMethodChoice] = useState<string | null>(null);
+  const cash = options?.paymentMethods.find(
+    (method) => method.name.trim().toLowerCase() === "efectivo",
+  );
+  const methodId = methodChoice ?? (cash ? String(cash.id) : "");
   const [issueDocuments, setIssueDocuments] = useState(true);
   const [includeEnrollmentCharges, setIncludeEnrollmentCharges] =
     useState(true);
@@ -151,7 +157,7 @@ export const PreparePaymentsForm = () => {
           Medio de pago
           <select
             value={methodId}
-            onChange={(event) => setMethodId(event.target.value)}
+            onChange={(event) => setMethodChoice(event.target.value)}
           >
             <option value="">elegir…</option>
             {options?.paymentMethods.map((method) => (

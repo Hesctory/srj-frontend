@@ -6,7 +6,9 @@
 export const CONSOLE_CSS = `
 .wb-root{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;font-size:12px;line-height:1.45;color:#b8f5b0;box-sizing:border-box}
 .wb-root *,.wb-root *::before,.wb-root *::after{box-sizing:border-box}
-.wb-drawer{position:fixed;top:0;right:0;height:100dvh;width:min(560px,100vw);z-index:1450;background:rgba(6,10,6,.93);border-left:1px solid #2f6b2f;display:flex;flex-direction:column;box-shadow:-4px 0 18px rgba(0,0,0,.35)}
+:root{--wb-width:min(560px,100vw)}
+@media (min-width:1100px){:root{--wb-width:min(460px,36vw)}html.wb-docked #root{margin-right:var(--wb-width)}}
+.wb-drawer{position:fixed;top:0;right:0;height:100dvh;width:var(--wb-width);z-index:1250;background:rgba(6,10,6,.8);backdrop-filter:blur(3px);border-left:1px solid #2f6b2f;display:flex;flex-direction:column;box-shadow:-4px 0 18px rgba(0,0,0,.35)}
 .wb-header{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 10px;border-bottom:1px solid #2f6b2f;color:#7cfc00;letter-spacing:.08em}
 .wb-scroll{flex:1;min-height:0;overflow:auto;padding:4px 10px 24px}
 .wb-root fieldset{border:0;margin:0;padding:0;min-width:0}
@@ -40,7 +42,7 @@ export const CONSOLE_CSS = `
 .wb-status{display:flex;flex-wrap:wrap;gap:2px 14px;padding:6px 10px;border-bottom:1px solid #2f6b2f}
 .wb-k{color:#79a876;margin-right:4px}
 .wb-root ol,.wb-root ul{margin:4px 0;padding-left:20px}
-.wb-launcher{position:fixed;right:0;top:50%;transform:translateY(-50%);z-index:1450;width:18px;height:56px;padding:0;border:1px solid #3d7a3d;border-right:0;border-radius:4px 0 0 4px;background:rgba(6,10,6,.7);color:#7cfc00;opacity:.5;cursor:pointer;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11px;writing-mode:vertical-rl;letter-spacing:.1em;line-height:1}
+.wb-launcher{position:fixed;right:0;top:50%;transform:translateY(-50%);z-index:1250;width:18px;height:56px;padding:0;border:1px solid #3d7a3d;border-right:0;border-radius:4px 0 0 4px;background:rgba(6,10,6,.7);color:#7cfc00;opacity:.5;cursor:pointer;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11px;writing-mode:vertical-rl;letter-spacing:.1em;line-height:1}
 .wb-launcher:hover,.wb-launcher:focus-visible{opacity:1}
 .wb-stale{opacity:.5}
 @media (max-width:600px){.wb-drawer{overflow:auto}.wb-scroll{flex:none;overflow:visible}.wb-stack thead{display:none}.wb-stack tr{display:flex;flex-wrap:wrap;gap:0 10px;border-bottom:1px dotted #2f6b2f}.wb-stack td{display:block;border-bottom:0;white-space:normal}.wb-stack td[colspan]{flex-basis:100%}}

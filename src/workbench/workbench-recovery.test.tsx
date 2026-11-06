@@ -40,12 +40,17 @@ const OPTIONS = {
   grades: [],
   shifts: [],
   feeConcepts: [],
-  paymentMethods: [],
+  paymentMethods: [
+    { id: 5, name: "Tarjeta" },
+    { id: 6, name: "Efectivo" },
+  ],
   enrollments: null,
   charges: null,
 };
 
 let hostUp = true;
+let mode = "off";
+let queue: string[] = [];
 let snapshotsFail = false;
 const paths: string[] = [];
 
@@ -56,13 +61,13 @@ const fakeFetch = vi.fn(async (url: string) => {
   const path = url.replace(API, "");
   paths.push(path);
   if (!hostUp) throw new TypeError("Failed to fetch");
-  if (path === "/status") return json(STATUS);
+  if (path === "/status") return json({ ...STATUS, mode });
   if (path.startsWith("/options")) return json(OPTIONS);
   if (path === "/workspace/snapshots")
     return snapshotsFail
       ? json({ message: "The snapshot folder is unreadable." }, 500)
       : json([]);
-  if (path === "/simulated/next") return json({ queue: [] });
+  if (path === "/simulated/next") return json({ queue });
   if (path === "/log") return json([]);
   return json([]);
 });
@@ -71,6 +76,8 @@ const statusCalls = () => paths.filter((path) => path === "/status").length;
 
 beforeEach(() => {
   hostUp = true;
+  mode = "off";
+  queue = [];
   snapshotsFail = false;
   paths.length = 0;
   vi.stubGlobal("fetch", fakeFetch);
@@ -135,5 +142,36 @@ describe("workbench console recovery", () => {
       await screen.findByText(/The snapshot folder is unreadable\./),
     ).toBeInTheDocument();
     expect(screen.queryByText(/cargando/)).not.toBeInTheDocument();
+  });
+
+  it("docks beside the app while open, and gives the width back when hidden", async () => {
+    renderOpen();
+    expect(document.documentElement).toHaveClass("wb-docked");
+    await userEvent.click(screen.getByLabelText("Ocultar el Workbench"));
+    expect(document.documentElement).not.toHaveClass("wb-docked");
+  });
+
+  it("follows the simulated queue as the app consumes it", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    mode = "simulated";
+    queue = ["reject"];
+    renderOpen();
+    await userEvent.click(screen.getByText("Modo Nubefact"));
+    const shown = () =>
+      screen.getByText(/^Cola:/).closest("p, div") as HTMLElement;
+    await vi.waitFor(() => expect(shown()).toHaveTextContent(/rechazo/i));
+
+    queue = [];
+    await act(() => vi.advanceTimersByTimeAsync(STATUS_POLL_MS));
+    await vi.waitFor(() => expect(shown()).not.toHaveTextContent(/rechazo/i));
+  });
+
+  it("pays in cash unless another method is chosen", async () => {
+    renderOpen();
+    await userEvent.click(screen.getByText("Preparar pagos"));
+    const method = await screen.findByLabelText(/Medio de pago/);
+    await vi.waitFor(() => expect(method).toHaveValue("6"));
+    await userEvent.selectOptions(method, "5");
+    expect(method).toHaveValue("5");
   });
 });

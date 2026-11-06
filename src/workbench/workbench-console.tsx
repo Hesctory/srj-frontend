@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { ConfirmProvider } from "./confirm-dialog";
 import { CONSOLE_CSS } from "./console-styles";
 import { DateSection, ModeSection } from "./date-mode-section";
@@ -32,13 +33,22 @@ const ConsoleBody = () => {
 const hide = () => panelStore.setOpen(false);
 
 /**
- * The development workbench: a translucent console drawer over the app, or,
+ * The development workbench: a translucent console drawer (docked beside the
+ * app on wide screens, over it on narrow ones), or,
  * hidden, a thin tab on the right edge at mid-height, where the app keeps no
  * controls (its toolbars sit at the top and bottom). Never a page of the app.
  * Mounted only in development (src/shared/components/dev-workbench.tsx).
  */
 const WorkbenchConsole = () => {
   const { open } = usePanelState();
+
+  // Open on a wide screen, the console docks: the app gives up its width
+  // (html.wb-docked, see console-styles) so nothing of it sits underneath.
+  useEffect(() => {
+    if (!open) return;
+    document.documentElement.classList.add("wb-docked");
+    return () => document.documentElement.classList.remove("wb-docked");
+  }, [open]);
 
   if (!open)
     return (
