@@ -17,6 +17,8 @@ import { usePendingPaymentsCount } from "@/features/billing/hooks/use-pending-pa
 import useIssueDocument from "@/features/billing/hooks/use-issue-document";
 import IssueDocumentDialog from "@/features/billing/components/issue-document-dialog";
 import SunatStatusChip from "@/features/billing/components/sunat-status-chip";
+import { OpenCaseLink } from "@/features/cashier";
+import RowCorrectionMenu from "./row-correction-menu";
 import AcquirerField from "@/features/billing/components/acquirer-field";
 import { paymentDocumentFilters } from "./filters";
 import PaymentDocumentsListToolbar from "./payment-documents-list-toolbar";
@@ -126,6 +128,9 @@ export const PaymentDocumentsList = () => {
           <DataTable.Col source="paymentId" label="Pago">
             <PaymentReferenceField />
           </DataTable.Col>
+          <DataTable.Col label="Corrección">
+            <OpenCaseCell />
+          </DataTable.Col>
           {/* `width: 1` here read as `100%` in MUI's system, which handed the
               empty action column every spare pixel on a wide screen. `1px`
               makes it hug its button instead. */}
@@ -138,6 +143,13 @@ export const PaymentDocumentsList = () => {
               <RowActions />
             </DataTable.Col>
           )}
+          <DataTable.Col
+            label=""
+            align="right"
+            sx={{ width: "1px", whiteSpace: "nowrap" }}
+          >
+            <RowCorrectionMenu />
+          </DataTable.Col>
         </DataTable>
       </List>
 
@@ -147,6 +159,11 @@ export const PaymentDocumentsList = () => {
       />
     </>
   );
+};
+
+const OpenCaseCell = () => {
+  const record = useRecordContext<PaymentDocument>();
+  return record ? <OpenCaseLink caseId={record.openRecoveryCaseId} /> : null;
 };
 
 /** A voided document stays readable but stops looking live. */
