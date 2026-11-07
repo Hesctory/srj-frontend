@@ -17,7 +17,7 @@ import { usePendingPaymentsCount } from "@/features/billing/hooks/use-pending-pa
 import useIssueDocument from "@/features/billing/hooks/use-issue-document";
 import IssueDocumentDialog from "@/features/billing/components/issue-document-dialog";
 import SunatStatusChip from "@/features/billing/components/sunat-status-chip";
-import { OpenCaseLink } from "@/features/cashier";
+import OpenCaseLink from "@/features/cashier/recovery/components/open-case-link";
 import RowCorrectionMenu from "./row-correction-menu";
 import AcquirerField from "@/features/billing/components/acquirer-field";
 import { paymentDocumentFilters } from "./filters";
