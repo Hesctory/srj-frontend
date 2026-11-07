@@ -272,9 +272,7 @@ const PaymentDocumentBody = () => {
               <KeyValue
                 label="Pago de origen"
                 value={
-                  document.paymentId === null
-                    ? "—"
-                    : `N.º ${document.paymentId}`
+                  document.paymentId == null ? "—" : `N.º ${document.paymentId}`
                 }
               />
               <KeyValue
@@ -293,7 +291,7 @@ const PaymentDocumentBody = () => {
                   <KeyValue
                     label="Documento"
                     value={
-                      document.acquirerDocumentType !== null &&
+                      document.acquirerDocumentType != null &&
                       document.acquirerDocumentNumber
                         ? `${ACQUIRER_DOCUMENT_TYPE_LABEL[document.acquirerDocumentType] ?? "Doc."} ${document.acquirerDocumentNumber}`
                         : "—"
@@ -413,7 +411,7 @@ const DocumentLines = ({
         >
           <Box minWidth={0}>
             <Typography variant="body2">{line.description}</Typography>
-            {line.obligationId !== null && (
+            {line.obligationId != null && (
               <Typography
                 variant="caption"
                 color="text.secondary"

@@ -241,7 +241,7 @@ const SunatReasonField = () => {
 const PaymentReferenceField = () => {
   const record = useRecordContext<PaymentDocument>();
   if (!record) return null;
-  return record.paymentId === null ? (
+  return record.paymentId == null ? (
     <Typography variant="body2" color="text.disabled">
       —
     </Typography>
