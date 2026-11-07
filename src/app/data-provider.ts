@@ -28,6 +28,14 @@ import type {
   PaymentPreviewRequest,
   PaymentPreviewResponse,
 } from "@/types/payment";
+import type {
+  CreatePaymentRecoveryCaseRequest,
+  CreditNoteReason,
+  PaymentRecoveryCase,
+  PaymentRecoveryScanResult,
+  ReplacementPreviewRequest,
+  ResolvePaymentRecoveryCaseRequest,
+} from "@/types/payment-recovery";
 import type { StudentDeletionPreview } from "@/types/student";
 import type {
   EnrollmentChangePreview,
@@ -259,6 +267,62 @@ const enrollmentPayments = {
     }),
 };
 
+// --- Payment recovery -------------------------------------------------------
+// Corrections of payments and comprobantes. The `payment-recovery-cases`
+// resource itself (list, getOne) is plain simple-rest; these are the RPCs.
+const recovery = {
+  createDocumentRecoveryCase: (
+    documentId: Identifier,
+    body: CreatePaymentRecoveryCaseRequest,
+  ) =>
+    sendJson<PaymentRecoveryCase>(
+      "POST",
+      `/payment-documents/${documentId}/recovery-cases`,
+      body,
+    ),
+  createPaymentRecoveryCase: (
+    paymentId: Identifier,
+    body: CreatePaymentRecoveryCaseRequest,
+  ) =>
+    sendJson<PaymentRecoveryCase>(
+      "POST",
+      `/payments/${paymentId}/recovery-cases`,
+      body,
+    ),
+  resolveRecoveryCase: (
+    caseId: Identifier,
+    body: ResolvePaymentRecoveryCaseRequest,
+  ) =>
+    sendJson<PaymentRecoveryCase>(
+      "PUT",
+      `/payment-recovery-cases/${caseId}/resolution`,
+      body,
+    ),
+  resumeRecoveryCase: (caseId: Identifier) =>
+    sendJson<PaymentRecoveryCase>(
+      "POST",
+      `/payment-recovery-cases/${caseId}/resume`,
+    ),
+  scanRecoveryCases: () =>
+    sendJson<PaymentRecoveryScanResult>("POST", "/payment-recovery-cases/scan"),
+  getCreditNoteReasons: async (): Promise<CreditNoteReason[]> => {
+    const { json } = await httpClient(
+      `${API_URL}/payment-documents/credit-note-reasons`,
+    );
+    return json as CreditNoteReason[];
+  },
+  /** Writes nothing; returns the single-use token for REPLACE_PAYMENT. */
+  previewPaymentReplacement: (
+    paymentId: Identifier,
+    body: ReplacementPreviewRequest,
+  ) =>
+    sendJson<PaymentPreviewResponse>(
+      "POST",
+      `/enrollment-payments/${paymentId}/replacement-preview`,
+      body,
+    ),
+};
+
 // --- Enrollments ------------------------------------------------------------
 // What an enrollment, a change of price or a withdrawal would do. All three
 // write nothing.
@@ -304,6 +368,7 @@ export type AppDataProvider = DataProvider & {
   exportReport: typeof exportReport;
 } & typeof catalog &
   typeof enrollmentPayments &
+  typeof recovery &
   typeof enrollments &
   typeof students;
 
@@ -316,6 +381,7 @@ const withAppExtensions = (base: DataProvider): AppDataProvider => ({
   exportReport,
   ...catalog,
   ...enrollmentPayments,
+  ...recovery,
   ...enrollments,
   ...students,
   // `DELETE /api/students/:id` takes `confirmWarnings=true` once staff have
