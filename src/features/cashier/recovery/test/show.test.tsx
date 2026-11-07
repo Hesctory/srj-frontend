@@ -74,11 +74,12 @@ describe("Correcciones show", { timeout: 30_000 }, () => {
   it("draws the path the backend sends, in its order", async () => {
     renderShow(
       makeCase({
+        currentStep: "FILE_CREDIT_NOTE",
         plannedSteps: [
-          { step: "RECONCILE_DOCUMENT", state: "DONE" },
-          { step: "FILE_CREDIT_NOTE", state: "CURRENT" },
-          { step: "CREATE_CREDIT_NOTE", state: "SKIPPED" },
-          { step: "VERIFY", state: "PENDING" },
+          "RECONCILE_DOCUMENT",
+          "FILE_CREDIT_NOTE",
+          "FINALIZE_LOCALLY",
+          "VERIFY",
         ],
       }),
     );
@@ -88,7 +89,7 @@ describe("Correcciones show", { timeout: 30_000 }, () => {
     const expected = [
       "Conciliar el comprobante",
       "Enviar la nota de crédito a SUNAT",
-      "Generar la nota de crédito",
+      "Anular el original en el sistema",
       "Verificar el resultado",
     ];
     expected.forEach((name, index) =>

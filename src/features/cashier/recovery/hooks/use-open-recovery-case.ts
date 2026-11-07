@@ -6,18 +6,43 @@ import { OPEN_STATUSES } from "@/features/cashier/recovery/utils/tabs";
 
 export type RecoveryTarget = { documentId: number } | { paymentId: number };
 
+/** The part of a payment or comprobante record this hook reads. */
+export interface RecordWithOpenCase {
+  openRecoveryCaseId?: number | null;
+}
+
 /**
  * The correction in progress on a comprobante or a payment, if any.
  *
- * Until the backend exposes `openRecoveryCaseId` this asks the list for the
- * target's cases that are not finished. Pass `null` while the target is not
- * known yet; the query then stays idle.
+ * With the record in hand, its `openRecoveryCaseId` is the answer: a number
+ * loads that case, `null` means there is none (no list query at all). Without
+ * a record (or a record from before the field existed, where it is
+ * `undefined`) it asks the list for the target's cases that are not finished.
+ * Pass `null` as the target while it is not known yet; the hook stays idle.
  */
-export const useOpenRecoveryCase = (target: RecoveryTarget | null) => {
+export const useOpenRecoveryCase = (
+  target: RecoveryTarget | null,
+  record?: RecordWithOpenCase | null,
+) => {
   const dataProvider = useDataProvider();
-  const query = useQuery({
+  const knownId = record?.openRecoveryCaseId;
+  const hasAnswer = knownId !== undefined;
+
+  const byId = useQuery({
+    queryKey: [...RECOVERY_CASES_KEY, "open-by-id", knownId],
+    enabled: typeof knownId === "number",
+    queryFn: async () => {
+      const { data } = await dataProvider.getOne<PaymentRecoveryCase>(
+        "payment-recovery-cases",
+        { id: knownId as number },
+      );
+      return data;
+    },
+  });
+
+  const byList = useQuery({
     queryKey: [...RECOVERY_CASES_KEY, "open", target],
-    enabled: target !== null,
+    enabled: target !== null && !hasAnswer,
     queryFn: async () => {
       const { data } = await dataProvider.getList<PaymentRecoveryCase>(
         "payment-recovery-cases",
@@ -31,9 +56,16 @@ export const useOpenRecoveryCase = (target: RecoveryTarget | null) => {
     },
   });
 
+  if (hasAnswer) {
+    return {
+      openCase: byId.data ?? null,
+      isLoading: typeof knownId === "number" && byId.isPending,
+      error: byId.error,
+    };
+  }
   return {
-    openCase: query.data ?? null,
-    isLoading: query.isPending && target !== null,
-    error: query.error,
+    openCase: byList.data ?? null,
+    isLoading: byList.isPending && target !== null,
+    error: byList.error,
   };
 };
