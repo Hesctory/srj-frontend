@@ -11,7 +11,7 @@ import type { Payment } from "@/types/payment";
 import type { PayerRelationship } from "@/types/payment-document";
 import type { RecoveryAction, RecoveryCause } from "@/types/payment-recovery";
 import FormGrid, { fullRowField } from "@/shared/components/form-grid";
-import { PayerNote } from "@/features/billing";
+import PayerNote from "@/features/billing/components/payer-note";
 import { formatMoney } from "@/utils/money";
 import { useCreditNoteReasons } from "@/features/cashier/recovery/hooks/use-credit-note-reasons";
 import {

@@ -28,7 +28,7 @@ import {
 import { formatIsoDate, formatIsoDateTime, formatMoney } from "@/utils/money";
 import useIssueDocument from "@/features/billing/hooks/use-issue-document";
 import RetirementInfo from "@/features/billing/components/retirement-info";
-import { CorrectButton } from "@/features/cashier";
+import CorrectButton from "@/features/cashier/recovery/components/correct-button";
 import SunatStatusPill from "@/features/billing/components/sunat-status-pill";
 
 /**
