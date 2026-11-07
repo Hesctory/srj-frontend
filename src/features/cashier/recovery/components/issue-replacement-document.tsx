@@ -17,7 +17,7 @@ export const IssueReplacementDocument = ({
   const [open, setOpen] = useState(false);
   const { data: payment } = useGetOne<Payment>("payments", { id: paymentId });
 
-  if (!payment || payment.activeDocumentId !== null) return null;
+  if (!payment || payment.activeDocumentId != null) return null;
 
   return (
     <>

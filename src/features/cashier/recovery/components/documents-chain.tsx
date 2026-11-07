@@ -22,25 +22,25 @@ export const DocumentsChain = ({ record }: { record: PaymentRecoveryCase }) => {
     createPath({ resource: "payments", type: "show", id });
 
   const rows: Row[] = [];
-  if (record.documentId !== null)
+  if (record.documentId != null)
     rows.push({
       label: "Comprobante original",
       value: `N.º ${record.documentId}`,
       to: documentPath(record.documentId),
     });
-  if (record.creditNoteDocumentId !== null)
+  if (record.creditNoteDocumentId != null)
     rows.push({
       label: "Nota de crédito",
       value: `N.º ${record.creditNoteDocumentId}`,
       to: documentPath(record.creditNoteDocumentId),
     });
-  if (record.paymentId !== null)
+  if (record.paymentId != null)
     rows.push({
       label: "Pago",
       value: `N.º ${record.paymentId}`,
       to: paymentPath(record.paymentId),
     });
-  if (record.replacementPaymentId !== null)
+  if (record.replacementPaymentId != null)
     rows.push({
       label: "Pago de reemplazo",
       value: `N.º ${record.replacementPaymentId}`,
