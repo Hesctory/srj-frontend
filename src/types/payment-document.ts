@@ -38,6 +38,11 @@ export type SunatStatusCode =
   | "REJECTED"
   | "NOT_APPLICABLE";
 
+export type RetirementKind =
+  | "LOCAL_DISCARD"
+  | "FULL_CREDIT_NOTE"
+  | "LEGACY_VOID";
+
 export type PaymentForm = "contado" | "credito";
 
 /** SUNAT Catálogo N° 06. */
@@ -69,6 +74,13 @@ export interface PaymentDocument {
   /** Nubefact page for this document. There is no PDF; `null` means no link. */
   link: string | null;
   isVoided: boolean;
+  /** When and why the comprobante stopped being live. All `null` while it is. */
+  retiredAt?: IsoDateTime | null;
+  retiredBy?: number | null;
+  retirementKind?: RetirementKind | null;
+  retirementReason?: string | null;
+  /** The accepted full credit note that neutralised it (`FULL_CREDIT_NOTE` only). */
+  correctionDocumentId?: number | null;
   sunatStatusCode: SunatStatusCode;
   sunatStatusName: string;
   /** SUNAT's own words on a rejection. Display verbatim — never paraphrase. */

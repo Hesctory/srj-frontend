@@ -10,7 +10,7 @@ import {
 export const CaseFindings = ({ findings }: { findings: RecoveryFinding[] }) => (
   <Stack spacing={1.5}>
     {findings.map((finding) => {
-      const resolved = finding.resolvedAt !== null;
+      const resolved = finding.resolvedAt != null;
       return (
         <Box
           key={finding.id}

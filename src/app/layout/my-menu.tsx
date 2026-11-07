@@ -9,7 +9,7 @@ import {
   type MenuLeaf,
 } from "@/app/navigation";
 import { usePendingPaymentsCount } from "@/features/billing/hooks/use-pending-payments";
-import { useRecoveryReviewCount } from "@/features/cashier/recovery";
+import { useRecoveryReviewCount } from "@/features/cashier/recovery/hooks/use-review-count";
 import SubMenu from "./sub-menu";
 import { NavMenuItem, useActiveMenuPath } from "./nav-menu-item";
 import logoSRJ from "../../../public/logoSRJ.png";
