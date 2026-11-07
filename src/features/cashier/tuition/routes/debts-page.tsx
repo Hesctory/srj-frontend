@@ -33,6 +33,7 @@ import {
   totalsOf,
 } from "@/features/cashier/tuition/utils/charges";
 import { EnrollmentCharge } from "@/types/enrollment-charge";
+import { DevWorkbenchButton } from "@/shared/components/dev-workbench";
 
 /**
  * Estado de cuenta of a single enrollment.
@@ -197,14 +198,31 @@ export const DebtsPage = () => {
               </Box>
             </Stack>
 
-            <Button
-              variant="contained"
-              startIcon={<BoltIcon />}
-              onClick={payEverything}
-              disabled={totals.outstanding <= 0}
+            {/* One right-hand group, so the header keeps its two-sided shape
+                in development too. */}
+            <Stack
+              direction="row"
+              spacing={1}
+              alignItems="center"
+              flexWrap="wrap"
             >
-              Pago rápido
-            </Button>
+              {/* Development only: renders nothing in a production build. */}
+              {studentId && enrollmentId ? (
+                <DevWorkbenchButton
+                  action="prepare-payments"
+                  studentId={studentId}
+                  enrollmentId={enrollmentId}
+                />
+              ) : null}
+              <Button
+                variant="contained"
+                startIcon={<BoltIcon />}
+                onClick={payEverything}
+                disabled={totals.outstanding <= 0}
+              >
+                Pago rápido
+              </Button>
+            </Stack>
           </Box>
         </Paper>
 

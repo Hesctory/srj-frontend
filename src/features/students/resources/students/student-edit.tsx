@@ -9,6 +9,7 @@ import {
   required,
 } from "react-admin";
 import StudentEditToolbar from "./student-edit-toolbar";
+import StudentEditActions from "./student-edit-actions";
 import ScrollableTabbedForm from "@/shared/components/scrollable-tabbed-form";
 import {
   FormGrid,
@@ -26,6 +27,7 @@ export const StudentEdit = () => {
   return (
     <Edit
       mutationMode="pessimistic"
+      actions={<StudentEditActions />}
       title={
         <span
           style={{
