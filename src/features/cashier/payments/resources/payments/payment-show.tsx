@@ -292,7 +292,7 @@ const PaymentBody = () => {
             />
           </Section>
           <Section title="Comprobante">
-            {record.activeDocumentId !== null ? (
+            {record.activeDocumentId != null ? (
               <MuiLink
                 component={Link}
                 to={createPath({

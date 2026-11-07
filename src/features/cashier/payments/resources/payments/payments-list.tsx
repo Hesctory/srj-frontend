@@ -108,7 +108,7 @@ const DocumentCell = () => {
   const record = useRecordContext<Payment>();
   const createPath = useCreatePath();
   if (!record) return null;
-  if (record.activeDocumentId === null)
+  if (record.activeDocumentId == null)
     return (
       <Typography variant="body2" color="text.disabled">
         Sin comprobante

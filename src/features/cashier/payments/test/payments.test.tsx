@@ -72,6 +72,21 @@ describe("Pagos list", { timeout: 30_000 }, () => {
     expect(screen.getByText("Corrección #41")).toBeInTheDocument();
   });
 
+  it("shows no comprobante link when the comprobante fields are missing", async () => {
+    const payment: Partial<Payment> = makePayment();
+    delete payment.activeDocumentId;
+    delete payment.activeDocumentNumber;
+    renderList(
+      vi.fn(async () => ({ data: [payment], total: 1 })) as unknown as Fn,
+    );
+
+    expect(await screen.findByText("Sin comprobante")).toBeInTheDocument();
+    expect(screen.queryByText(/undefined/)).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: /N\.º/ }),
+    ).not.toBeInTheDocument();
+  });
+
   it("says nothing exists when the table is empty without filters", async () => {
     renderList(vi.fn(async () => ({ data: [], total: 0 })) as unknown as Fn);
     expect(
