@@ -44,25 +44,37 @@ export type RecoveryStep =
 /** What the case offers a person to do. Buttons follow this, never `status`. */
 export type RecoveryAvailableAction = "RESUME" | "RESOLVE";
 
-export type PlannedStepState = "DONE" | "CURRENT" | "PENDING" | "SKIPPED";
+export type RecoverySeverity = "CRITICAL" | "WARNING";
 
-/**
- * One station of the case's own path. Not in the contract yet (the backend
- * will add it); until then it is absent and the screen shows only the current
- * step. The exact shape is the backend's call, so `step` stays a plain string.
- */
-export interface PlannedStep {
-  step: string;
-  state: PlannedStepState;
-}
+export type RecoveryEventType =
+  | "CREATED"
+  | "DETECTED"
+  | "RESOLVED"
+  | "CREDIT_NOTE_CREATED"
+  | "CREDIT_NOTE_RECOVERED"
+  | "WAITING_EXTERNAL"
+  | "NEEDS_REVIEW"
+  | "RETRY_SCHEDULED"
+  | "LOCAL_FINALIZED"
+  | "COMPLETED";
+
+/** Finding codes the scanner can raise. */
+export type RecoveryFindingCode =
+  | "VOIDED_PAYMENT_HAS_LIVE_ALLOCATIONS"
+  | "VOIDED_PAYMENT_HAS_LIVE_MOVEMENTS"
+  | "VOIDED_PAYMENT_HAS_ACTIVE_DOCUMENT"
+  | "ACTIVE_PAYMENT_HAS_PARTIAL_VOID"
+  | "STALE_SENT_DOCUMENT"
+  | "ACCEPTED_CREDIT_NOTE_UNFINISHED"
+  | "EXPIRED_RECOVERY_LEASE"
+  | "DOCUMENT_AMOUNT_MISMATCH";
 
 export interface RecoveryFinding {
   id: number;
-  code: string | null;
+  code: RecoveryFindingCode | null;
   entityKind: string | null;
   entityId: number;
-  /** `CRITICAL` | `WARNING`. */
-  severity: string | null;
+  severity: RecoverySeverity | null;
   detectedAt: string;
   lastSeenAt: string;
   resolvedAt: string | null;
@@ -70,9 +82,9 @@ export interface RecoveryFinding {
 
 export interface RecoveryEvent {
   id: number;
-  eventType: string | null;
-  status: string | null;
-  step: string | null;
+  eventType: RecoveryEventType | null;
+  status: RecoveryStatus | null;
+  step: RecoveryStep | null;
   /** Can be raw technical text with internal ids: never headline copy. */
   message: string | null;
   actorUserId: number | null;
@@ -106,8 +118,12 @@ export interface PaymentRecoveryCase {
   availableActions: RecoveryAvailableAction[] | null;
   findings: RecoveryFinding[];
   events: RecoveryEvent[];
-  /** Backend addition pending (B1). Optional on purpose. */
-  plannedSteps?: PlannedStep[];
+  /**
+   * The whole path of this case, first step to `VERIFY`, as step codes. Steps
+   * before `currentStep`'s index are done; on `COMPLETED` every step is. The
+   * path can shrink between polls, so never cache it.
+   */
+  plannedSteps: RecoveryStep[] | null;
 }
 
 export interface PaymentRecoveryScanResult {

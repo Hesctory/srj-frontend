@@ -29,5 +29,6 @@ export const makeCase = (
   availableActions: [],
   findings: [],
   events: [],
+  plannedSteps: null,
   ...overrides,
 });
