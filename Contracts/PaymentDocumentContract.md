@@ -35,7 +35,8 @@ Comprobantes de pago — generating one for a payment, reading them, and filing 
   "sunatStatusCode": "PENDING",         // "PENDING" | "SENT" | "ACCEPTED" | "REJECTED" | "NOT_APPLICABLE" — string | null — Filing state, from `sunat_statuses`.
   "sunatStatusName": "…",               // string | null
   "sunatMessage": "…",                  // string | null
-  "createdAt": "2026-08-19T14:30:00Z"   // ISO 8601
+  "createdAt": "2026-08-19T14:30:00Z",  // ISO 8601
+  "openRecoveryCaseId": 1               // number | null — The open recovery case correcting this comprobante — aimed at it directly, or at its payment alone while it is not voided.
 }
 ```
 
@@ -85,7 +86,8 @@ Generating a comprobante takes the payment, plus an optional note on who physica
     "sunatStatusCode": "PENDING",         // "PENDING" | "SENT" | "ACCEPTED" | "REJECTED" | "NOT_APPLICABLE" — string | null — Filing state, from `sunat_statuses`.
     "sunatStatusName": "…",               // string | null
     "sunatMessage": "…",                  // string | null
-    "createdAt": "2026-08-19T14:30:00Z"   // ISO 8601
+    "createdAt": "2026-08-19T14:30:00Z",  // ISO 8601
+    "openRecoveryCaseId": 1               // number | null — The open recovery case correcting this comprobante — aimed at it directly, or at its payment alone while it is not voided.
   },
   "lines": [
     {
@@ -137,6 +139,7 @@ A comprobante with its fiscal lines.
 | `issueDateTo` | `"YYYY-MM-DD"` |  |
 | `includeVoided` | `boolean` |  |
 | `id` | `integer[]` |  |
+| `hasOpenRecoveryCase` | `boolean` |  |
 
 **Response** `200` — body is `PaymentDocument[]`, plus a `Content-Range` header carrying the total row count
 

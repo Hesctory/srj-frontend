@@ -40,7 +40,13 @@ The generic settlement records produced by business-specific payment workflows.
       "originTypeCode": "…",  // string | null
       "isVoided": true
     }
-  ]
+  ],
+  "partyTypeCode": "STUDENT",           // "STUDENT" | "GUARDIAN" | "PROVIDER" | "STAFF" — string | null — The one party whose obligations the payment settles — counting voided allocations, so a voided payment still shows who it was for.
+  "partyId": 1,                         // number | null
+  "partyName": "…",                     // string | null — Surname-first full name for a student, guardian or staff member; the business name for a provider.
+  "activeDocumentId": 1,                // number | null — The payment's comprobante that is not voided, if any.
+  "activeDocumentNumber": "…",          // string | null — That comprobante's number, written as in the comprobante list.
+  "openRecoveryCaseId": 1               // number | null — The open recovery case correcting this payment (a document case counts: it carries its payment too).
 }
 ```
 
@@ -136,6 +142,10 @@ A payment that still owes a comprobante. Derived, never flagged: a flag would ha
 | `isVoided` | `boolean` |  |
 | `createdBy` | `integer` |  |
 | `obligationId` | `integer` |  |
+| `partyTypeCode` | `string` | "STUDENT" \| "GUARDIAN" \| "PROVIDER" \| "STAFF" |
+| `partyId` | `integer` |  |
+| `documentNumber` | `string` |  |
+| `hasOpenRecoveryCase` | `boolean` |  |
 
 **Response** `200` — body is `Payment[]`, plus a `Content-Range` header carrying the total row count
 
