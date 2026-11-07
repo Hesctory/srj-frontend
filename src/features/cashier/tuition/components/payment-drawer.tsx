@@ -15,7 +15,7 @@ import {
 } from "@mui/material";
 import { useGetList } from "react-admin";
 import type { PaymentMethod } from "@/types/payment";
-import { IssueDocumentDialog } from "@/features/billing";
+import IssueDocumentDialog from "@/features/billing/components/issue-document-dialog";
 import ChargeDetailsPanel from "./charge-details-panel";
 import PaymentPlanReview from "./payment-plan-review";
 import PaymentReceipt from "./payment-receipt";

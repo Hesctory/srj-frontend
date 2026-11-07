@@ -3,7 +3,7 @@ import { useGetOne } from "react-admin";
 import { Alert, AlertTitle, Button } from "@mui/material";
 import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
 import type { Payment } from "@/types/payment";
-import { IssueDocumentDialog } from "@/features/billing";
+import IssueDocumentDialog from "@/features/billing/components/issue-document-dialog";
 
 /**
  * A replacement payment is recorded without a comprobante. Once the case is

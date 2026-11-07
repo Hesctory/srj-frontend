@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import { IconButton, ListItemText, Menu, MenuItem } from "@mui/material";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import type { PaymentDocument } from "@/types/payment-document";
-import { CorrectionDialog } from "@/features/cashier";
+import CorrectionDialog from "@/features/cashier/recovery/components/correction-dialog";
 
 /**
  * The row's "⋮" menu. Corregir opens the correction dialog; while a case is
