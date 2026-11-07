@@ -179,3 +179,61 @@ describe("Correcciones show", { timeout: 30_000 }, () => {
     expect(pollIntervalFor("COMPLETED")).toBe(false);
   });
 });
+
+describe("Correcciones show: pago de reemplazo", { timeout: 30_000 }, () => {
+  beforeEach(() => {
+    window.location.hash = "#/payment-recovery-cases/41/show";
+  });
+
+  const renderCompleted = (replacementDocumentId: number | null) =>
+    renderWithAdmin(
+      <Routes>
+        <Route
+          path="/payment-recovery-cases/:id/show"
+          element={<PaymentRecoveryCaseShow />}
+        />
+      </Routes>,
+      {
+        resource: "payment-recovery-cases",
+        dataProvider: {
+          getOne: vi.fn(async (resource: string) => ({
+            data:
+              resource === "payment-recovery-cases"
+                ? makeCase({
+                    action: "REPLACE_PAYMENT",
+                    status: "COMPLETED",
+                    replacementPaymentId: 950,
+                  })
+                : {
+                    id: 950,
+                    partyName: "Alumno Sintético",
+                    activeDocumentId: replacementDocumentId,
+                  },
+          })),
+          getList: vi.fn(async () => ({ data: [], total: 0 })),
+        },
+      },
+    );
+
+  it("offers to issue the comprobante of the new payment when it has none", async () => {
+    renderCompleted(null);
+    await userEvent.click(
+      await screen.findByRole("button", {
+        name: "Emitir comprobante del pago nuevo",
+      }),
+    );
+    expect(
+      await screen.findByRole("dialog", { name: /comprobante/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("does not offer it when the new payment already has a comprobante", async () => {
+    renderCompleted(960);
+    await screen.findByText("Pago de reemplazo");
+    expect(
+      screen.queryByRole("button", {
+        name: "Emitir comprobante del pago nuevo",
+      }),
+    ).toBeNull();
+  });
+});

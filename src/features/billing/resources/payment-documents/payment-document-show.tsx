@@ -27,6 +27,8 @@ import {
 } from "@/types/payment-document";
 import { formatIsoDate, formatIsoDateTime, formatMoney } from "@/utils/money";
 import useIssueDocument from "@/features/billing/hooks/use-issue-document";
+import RetirementInfo from "@/features/billing/components/retirement-info";
+import { CorrectButton } from "@/features/cashier";
 import SunatStatusPill from "@/features/billing/components/sunat-status-pill";
 
 /**
@@ -153,6 +155,15 @@ const PaymentDocumentBody = () => {
             </Button>
           )}
 
+          {!document.isVoided && (
+            <CorrectButton
+              documentId={document.id}
+              paymentId={document.paymentId}
+              documentNumber={document.number}
+              openRecoveryCaseId={document.openRecoveryCaseId}
+            />
+          )}
+
           {document.link && (
             <Button
               variant="outlined"
@@ -166,6 +177,8 @@ const PaymentDocumentBody = () => {
           )}
         </Stack>
       </Box>
+
+      <RetirementInfo document={document} />
 
       {flow.error && (
         <Alert severity="error" onClose={flow.dismissError} sx={{ mb: 2 }}>
