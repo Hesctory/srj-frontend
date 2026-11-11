@@ -145,11 +145,15 @@ describe("workbench console recovery", () => {
     expect(screen.queryByText(/cargando/)).not.toBeInTheDocument();
   });
 
-  it("docks beside the app while open, and gives the width back when hidden", async () => {
+  it("floats over the app: opening and hiding it leaves the page untouched", async () => {
+    const htmlClass = document.documentElement.className;
+    const htmlStyle = document.documentElement.getAttribute("style");
     renderOpen();
-    expect(document.documentElement).toHaveClass("wb-docked");
+    expect(document.documentElement.className).toBe(htmlClass);
+    expect(document.documentElement.getAttribute("style")).toBe(htmlStyle);
     await userEvent.click(screen.getByLabelText("Ocultar el Workbench"));
-    expect(document.documentElement).not.toHaveClass("wb-docked");
+    expect(document.documentElement.className).toBe(htmlClass);
+    expect(document.documentElement.getAttribute("style")).toBe(htmlStyle);
   });
 
   it("follows the simulated queue as the app consumes it", async () => {

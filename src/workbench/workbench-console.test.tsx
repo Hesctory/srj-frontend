@@ -200,7 +200,7 @@ describe("workbench console", { timeout: 20000 }, () => {
     expect(localStorage.getItem("srj.workbench.open")).toBe("0");
 
     await user.click(
-      screen.getByRole("button", { name: "Abrir el Workbench" }),
+      screen.getByRole("button", { name: /Abrir el Workbench/ }),
     );
     const drawer = screen.getByLabelText("Workbench (solo desarrollo)");
     expect(drawer).toHaveAttribute(
@@ -211,7 +211,7 @@ describe("workbench console", { timeout: 20000 }, () => {
 
     fireEvent.keyDown(drawer, { key: "Escape" });
     expect(
-      screen.getByRole("button", { name: "Abrir el Workbench" }),
+      screen.getByRole("button", { name: /Abrir el Workbench/ }),
     ).toBeVisible();
   });
 
