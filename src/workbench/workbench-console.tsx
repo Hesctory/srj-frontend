@@ -95,8 +95,8 @@ const useConsoleHost = () => {
 };
 
 /**
- * The development workbench: a translucent console drawer (docked beside the
- * app on wide screens, over it on narrow ones), or,
+ * The development workbench: a translucent console drawer that always floats
+ * over the app (it never changes the app's layout), or,
  * hidden, a thin tab on the right edge at mid-height, where the app keeps no
  * controls (its toolbars sit at the top and bottom). Never a page of the app.
  * Rendered through a portal into its own layer on document.body (see
@@ -110,14 +110,6 @@ const WorkbenchConsole = () => {
 
 const ConsoleLayer = () => {
   const { open } = usePanelState();
-
-  // Open on a wide screen, the console docks: the app gives up its width
-  // (html.wb-docked, see console-styles) so nothing of it sits underneath.
-  useEffect(() => {
-    if (!open) return;
-    document.documentElement.classList.add("wb-docked");
-    return () => document.documentElement.classList.remove("wb-docked");
-  }, [open]);
 
   if (!open)
     return (

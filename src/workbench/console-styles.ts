@@ -7,7 +7,7 @@ export const CONSOLE_CSS = `
 .wb-root{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;font-size:12px;line-height:1.45;color:#b8f5b0;box-sizing:border-box}
 .wb-root *,.wb-root *::before,.wb-root *::after{box-sizing:border-box}
 :root{--wb-width:min(560px,100vw)}
-@media (min-width:1100px){:root{--wb-width:min(460px,36vw)}html.wb-docked #root{margin-right:var(--wb-width)}html.wb-docked .MuiDialog-root,html.wb-docked .MuiDialog-root>.MuiBackdrop-root,html.wb-docked .MuiDrawer-modal,html.wb-docked .MuiDrawer-modal>.MuiBackdrop-root,html.wb-docked .MuiDrawer-paperAnchorRight{right:var(--wb-width)}}
+@media (min-width:1100px){:root{--wb-width:min(460px,36vw)}}
 .wb-host{position:fixed;inset:0;width:auto;height:auto;margin:0;padding:0;border:0;background:transparent;overflow:visible;pointer-events:none;z-index:2000;color:inherit}
 .wb-host>*{pointer-events:auto}
 .wb-drawer{position:fixed;top:0;right:0;height:100dvh;width:var(--wb-width);background:rgba(6,10,6,.8);backdrop-filter:blur(3px);border-left:1px solid #2f6b2f;display:flex;flex-direction:column;box-shadow:-4px 0 18px rgba(0,0,0,.35)}
