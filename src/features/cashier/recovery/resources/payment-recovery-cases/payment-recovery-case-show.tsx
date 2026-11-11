@@ -21,6 +21,7 @@ import CaseProgress from "@/features/cashier/recovery/components/case-progress";
 import CaseStatusChip from "@/features/cashier/recovery/components/case-status-chip";
 import CaseSummary from "@/features/cashier/recovery/components/case-summary";
 import DocumentsChain from "@/features/cashier/recovery/components/documents-chain";
+import IssueReplacementDocument from "@/features/cashier/recovery/components/issue-replacement-document";
 import ResolutionForm from "@/features/cashier/recovery/components/resolution-form";
 import TechnicalDetail from "@/features/cashier/recovery/components/technical-detail";
 import { useResumeRecoveryCase } from "@/features/cashier/recovery/hooks/use-recovery-mutations";
@@ -180,6 +181,10 @@ const CaseBody = () => {
           <TechnicalDetail text={record.lastError} />
         </Alert>
       )}
+      {record.status === "COMPLETED" &&
+        record.replacementPaymentId !== null && (
+          <IssueReplacementDocument paymentId={record.replacementPaymentId} />
+        )}
       {canResolve && (
         <Alert severity="warning" sx={{ mb: 2 }}>
           <AlertTitle>Este caso necesita que alguien decida</AlertTitle>

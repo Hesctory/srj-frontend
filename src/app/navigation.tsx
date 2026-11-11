@@ -22,6 +22,7 @@ import WorkIcon from "@mui/icons-material/Work";
 import MenuBookIcon from "@mui/icons-material/MenuBook";
 import RuleFolderIcon from "@mui/icons-material/RuleFolder";
 import PaymentsIcon from "@mui/icons-material/Payments";
+import ReceiptIcon from "@mui/icons-material/Receipt";
 import LayersIcon from "@mui/icons-material/Layers";
 import FormatListNumberedIcon from "@mui/icons-material/FormatListNumbered";
 
@@ -68,6 +69,7 @@ export const menu: MenuEntry[] = [
     icon: <PointOfSaleIcon />,
     children: [
       { name: "Pensiones", path: "/cashier/tuition", icon: <PaymentsIcon /> },
+      { name: "Pagos", path: "/payments", icon: <ReceiptIcon /> },
       {
         name: "Correcciones",
         path: "/payment-recovery-cases",

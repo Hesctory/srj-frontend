@@ -209,6 +209,9 @@ export interface Payment {
   /** Short of `amount` by any retained commission. */
   totalToAccounts: number;
   isVoided: boolean;
+  voidedAt?: IsoInstant | null;
+  voidedBy?: number | null;
+  voidReason?: string | null;
   createdAt: IsoInstant;
   createdBy: number | null;
   tenders: PaymentTender[];

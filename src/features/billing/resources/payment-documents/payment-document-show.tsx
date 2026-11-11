@@ -27,6 +27,8 @@ import {
 } from "@/types/payment-document";
 import { formatIsoDate, formatIsoDateTime, formatMoney } from "@/utils/money";
 import useIssueDocument from "@/features/billing/hooks/use-issue-document";
+import RetirementInfo from "@/features/billing/components/retirement-info";
+import CorrectButton from "@/features/cashier/recovery/components/correct-button";
 import SunatStatusPill from "@/features/billing/components/sunat-status-pill";
 
 /**
@@ -153,6 +155,15 @@ const PaymentDocumentBody = () => {
             </Button>
           )}
 
+          {!document.isVoided && (
+            <CorrectButton
+              documentId={document.id}
+              paymentId={document.paymentId}
+              documentNumber={document.number}
+              openRecoveryCaseId={document.openRecoveryCaseId}
+            />
+          )}
+
           {document.link && (
             <Button
               variant="outlined"
@@ -166,6 +177,8 @@ const PaymentDocumentBody = () => {
           )}
         </Stack>
       </Box>
+
+      <RetirementInfo document={document} />
 
       {flow.error && (
         <Alert severity="error" onClose={flow.dismissError} sx={{ mb: 2 }}>
@@ -259,9 +272,7 @@ const PaymentDocumentBody = () => {
               <KeyValue
                 label="Pago de origen"
                 value={
-                  document.paymentId === null
-                    ? "—"
-                    : `N.º ${document.paymentId}`
+                  document.paymentId == null ? "—" : `N.º ${document.paymentId}`
                 }
               />
               <KeyValue
@@ -280,7 +291,7 @@ const PaymentDocumentBody = () => {
                   <KeyValue
                     label="Documento"
                     value={
-                      document.acquirerDocumentType !== null &&
+                      document.acquirerDocumentType != null &&
                       document.acquirerDocumentNumber
                         ? `${ACQUIRER_DOCUMENT_TYPE_LABEL[document.acquirerDocumentType] ?? "Doc."} ${document.acquirerDocumentNumber}`
                         : "—"
@@ -400,7 +411,7 @@ const DocumentLines = ({
         >
           <Box minWidth={0}>
             <Typography variant="body2">{line.description}</Typography>
-            {line.obligationId !== null && (
+            {line.obligationId != null && (
               <Typography
                 variant="caption"
                 color="text.secondary"

@@ -108,14 +108,14 @@ export const ResolutionForm = ({
   const { data: document } = useGetOne<PaymentDocumentRecord>(
     "payment-documents",
     { id: record.documentId ?? 0 },
-    { enabled: record.documentId !== null },
+    { enabled: record.documentId != null },
   );
   const needsReason = document?.sunatStatusCode === "ACCEPTED";
   const { data: reasons = [] } = useCreditNoteReasons(needsReason);
 
   const switchingToReplacement =
     action === "REPLACE_PAYMENT" && record.action !== "REPLACE_PAYMENT";
-  const canPreview = switchingToReplacement && record.paymentId !== null;
+  const canPreview = switchingToReplacement && record.paymentId != null;
 
   const changeAction = (next: RecoveryAction) => {
     setAction(next);
