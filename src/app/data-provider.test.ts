@@ -322,6 +322,104 @@ describe("dataProvider", () => {
     expect(request.body).toEqual({ previewToken: "t" });
   });
 
+  it("pins every payment-recovery URL", async () => {
+    const body = {
+      requestId: "r",
+      action: "VOID_PAYMENT" as const,
+      cause: "OTHER" as const,
+      justification: "j",
+    };
+    const urls: [() => Promise<unknown>, string, string][] = [
+      [
+        () => dataProvider.createDocumentRecoveryCase(5, body),
+        "POST",
+        "/payment-documents/5/recovery-cases",
+      ],
+      [
+        () => dataProvider.createPaymentRecoveryCase(6, body),
+        "POST",
+        "/payments/6/recovery-cases",
+      ],
+      [
+        () =>
+          dataProvider.resolveRecoveryCase(7, {
+            expectedVersion: 2,
+            action: "VOID_PAYMENT",
+            cause: "OTHER",
+            justification: "j",
+          }),
+        "PUT",
+        "/payment-recovery-cases/7/resolution",
+      ],
+      [
+        () => dataProvider.resumeRecoveryCase(8),
+        "POST",
+        "/payment-recovery-cases/8/resume",
+      ],
+      [
+        () => dataProvider.scanRecoveryCases(),
+        "POST",
+        "/payment-recovery-cases/scan",
+      ],
+      [
+        () => dataProvider.getCreditNoteReasons(),
+        "GET",
+        "/payment-documents/credit-note-reasons",
+      ],
+      [
+        () =>
+          dataProvider.previewPaymentReplacement(9, {
+            cause: "OTHER",
+            lines: [{ paymentMethodId: 1, amount: 10 }],
+          }),
+        "POST",
+        "/enrollment-payments/9/replacement-preview",
+      ],
+    ];
+
+    for (const [call, method, path] of urls) {
+      fetchMock.mockResolvedValueOnce(jsonResponse({}));
+      await call();
+      const request = lastRequest();
+      expect(request.method).toBe(method);
+      expect(request.url.href).toBe(`${API_URL}${path}`);
+    }
+  });
+
+  it("sends the resolution with the version the person saw", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ id: 7 }));
+    await dataProvider.resolveRecoveryCase(7, {
+      expectedVersion: 4,
+      action: "REPLACE_PAYMENT",
+      cause: "TYPING_ERROR",
+      justification: "j",
+      replacementPreviewToken: "t",
+    });
+    expect(lastRequest().body).toEqual({
+      expectedVersion: 4,
+      action: "REPLACE_PAYMENT",
+      cause: "TYPING_ERROR",
+      justification: "j",
+      replacementPreviewToken: "t",
+    });
+  });
+
+  it("maps payment-recovery-cases to plain simple-rest", async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse([{ id: 1 }], { "Content-Range": "x 0-0/1" }),
+    );
+    await dataProvider.getList("payment-recovery-cases", {
+      pagination: { page: 1, perPage: 25 },
+      sort: { field: "id", order: "DESC" },
+      filter: { status: ["NEEDS_REVIEW"] },
+    });
+    const { url } = lastRequest();
+    expect(url.pathname.endsWith("/payment-recovery-cases")).toBe(true);
+    expect(JSON.parse(url.searchParams.get("filter") ?? "{}")).toEqual({
+      status: ["NEEDS_REVIEW"],
+    });
+  });
+
   it("maps school fees to plain /school-fees CRUD", async () => {
     fetchMock.mockResolvedValueOnce(
       jsonResponse([], { "Content-Range": "school-fees 0-0/0" }),
