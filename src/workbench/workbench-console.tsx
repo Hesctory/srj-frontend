@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ConfirmProvider } from "./confirm-dialog";
 import { CONSOLE_CSS } from "./console-styles";
@@ -11,6 +11,8 @@ import { PrepareEnrollmentForm } from "./prepare-enrollment-form";
 import { PreparePaymentsForm } from "./prepare-payments-form";
 import { WorkspaceSection } from "./snapshots-section";
 import { ConsoleMessages, StatusBar } from "./status-bar";
+import { useToggleShortcut } from "./use-toggle-shortcut";
+import { rememberFocusOrigin, takeFocusOrigin } from "./focus-return";
 import { useWorkbench, WorkbenchProvider } from "./workbench-context";
 
 const ConsoleBody = () => {
@@ -50,7 +52,10 @@ const useConsoleHost = () => {
     const el = document.createElement("div");
     el.className = "wb-host";
     el.setAttribute("data-srj-workbench", SRJ_WORKBENCH_DEV_ONLY);
-    const stopFocus = (event: Event) => event.stopPropagation();
+    const stopFocus = (event: Event) => {
+      rememberFocusOrigin((event as FocusEvent).relatedTarget as Element, el);
+      event.stopPropagation();
+    };
     el.addEventListener("focusin", stopFocus);
     el.style.cssText =
       "position:fixed;inset:0;width:auto;height:auto;margin:0;padding:0;border:0;background:transparent;overflow:visible;pointer-events:none;z-index:2000";
@@ -105,6 +110,7 @@ const useConsoleHost = () => {
  */
 const WorkbenchConsole = () => {
   const host = useConsoleHost();
+  useToggleShortcut();
   return host ? createPortal(<ConsoleLayer />, host) : null;
 };
 
@@ -120,16 +126,43 @@ const ConsoleLayer = () => {
           data-srj-workbench={SRJ_WORKBENCH_DEV_ONLY}
           className="wb-launcher"
           onClick={() => panelStore.setOpen(true)}
-          title="Abrir el Workbench (solo desarrollo)"
-          aria-label="Abrir el Workbench"
+          title="Abrir el Workbench (Ctrl+Shift+E, solo desarrollo)"
+          aria-label="Abrir el Workbench (Ctrl+Shift+E)"
+          aria-keyshortcuts="Control+Shift+E"
         >
           WB
         </button>
       </>
     );
 
+  return <Drawer />;
+};
+
+const Drawer = () => {
+  const ref = useRef<HTMLElement>(null);
+
+  // On hide, give focus back to the app element it came from, before MUI's
+  // FocusTrap (50 ms interval) pulls it onto a dialog container. Skipped when
+  // focus already moved to another app element.
+  useLayoutEffect(() => {
+    const drawer = ref.current;
+    return () => {
+      const active = document.activeElement;
+      const inConsole =
+        !active || active === document.body || !!drawer?.contains(active);
+      const origin = takeFocusOrigin();
+      if (!inConsole || !origin) return;
+      queueMicrotask(() => {
+        const now = document.activeElement;
+        if (!now || now === document.body)
+          origin.focus({ preventScroll: true });
+      });
+    };
+  }, []);
+
   return (
     <aside
+      ref={ref}
       data-srj-workbench={SRJ_WORKBENCH_DEV_ONLY}
       className="wb-root wb-drawer"
       aria-label="Workbench (solo desarrollo)"
@@ -147,6 +180,8 @@ const ConsoleLayer = () => {
               type="button"
               onClick={hide}
               aria-label="Ocultar el Workbench"
+              title="Ocultar el Workbench (Ctrl+Shift+E o Esc)"
+              aria-keyshortcuts="Control+Shift+E"
             >
               ocultar ▾
             </button>

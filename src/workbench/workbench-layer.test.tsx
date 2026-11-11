@@ -5,6 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { panelStore } from "./panel-store";
 import WorkbenchConsole from "./workbench-console";
 
+type User = ReturnType<typeof userEvent.setup>;
+
 const status = {
   businessDate: "2026-03-02",
   followingToday: false,
@@ -72,7 +74,7 @@ describe("workbench layer", () => {
     );
 
     await user.click(
-      await screen.findByRole("button", { name: "Abrir el Workbench" }),
+      await screen.findByRole("button", { name: /Abrir el Workbench/ }),
     );
     const consoleEl = await screen.findByLabelText(
       "Workbench (solo desarrollo)",
@@ -115,7 +117,7 @@ describe("workbench layer", () => {
       </>,
     );
     await user.click(
-      await screen.findByRole("button", { name: "Abrir el Workbench" }),
+      await screen.findByRole("button", { name: /Abrir el Workbench/ }),
     );
     const consoleEl = await screen.findByLabelText(
       "Workbench (solo desarrollo)",
@@ -142,7 +144,7 @@ describe("workbench layer", () => {
       </>,
     );
     await user.click(
-      await screen.findByRole("button", { name: "Abrir el Workbench" }),
+      await screen.findByRole("button", { name: /Abrir el Workbench/ }),
     );
     const consoleEl = await screen.findByLabelText(
       "Workbench (solo desarrollo)",
@@ -173,5 +175,123 @@ describe("workbench layer", () => {
     expect(document.querySelector(".wb-host")).not.toBeNull();
     unmount();
     expect(document.querySelector(".wb-host")).toBeNull();
+  });
+
+  describe("Ctrl+Shift+E", () => {
+    const press = (user: ReturnType<typeof userEvent.setup>) =>
+      user.keyboard("{Control>}{Shift>}e{/Shift}{/Control}");
+
+    it("opens from hidden with focus in the drawer, and hides on a second press", async () => {
+      const user = userEvent.setup();
+      render(<WorkbenchConsole />);
+      await screen.findByRole("button", { name: /Abrir el Workbench/ });
+      await press(user);
+      const drawer = await screen.findByLabelText(
+        "Workbench (solo desarrollo)",
+      );
+      await vi.waitFor(() => expect(drawer).toHaveFocus());
+      await press(user);
+      expect(
+        screen.queryByLabelText("Workbench (solo desarrollo)"),
+      ).not.toBeInTheDocument();
+    });
+
+    it("works with focus in an open dialog's input, leaving the dialog open", async () => {
+      const user = userEvent.setup();
+      render(
+        <>
+          <Dialog open onClose={() => undefined}>
+            <DialogContent>
+              <TextField label="Campo del diálogo" />
+            </DialogContent>
+          </Dialog>
+          <WorkbenchConsole />
+        </>,
+      );
+      await screen.findByRole("button", { name: /Abrir el Workbench/ });
+      await user.click(screen.getByLabelText("Campo del diálogo"));
+      await press(user);
+      expect(
+        await screen.findByLabelText("Workbench (solo desarrollo)"),
+      ).toBeInTheDocument();
+      expect(screen.getByRole("dialog")).toBeInTheDocument();
+      expect(screen.getByLabelText("Campo del diálogo")).toHaveValue("");
+    });
+
+    const withDialog = () =>
+      render(
+        <>
+          <Dialog open onClose={() => undefined}>
+            <DialogContent>
+              <TextField label="Campo del diálogo" />
+            </DialogContent>
+          </Dialog>
+          <WorkbenchConsole />
+        </>,
+      );
+
+    it.each([
+      ["Ctrl+Shift+E", (user: User) => press(user)],
+      ["Escape", (user: User) => user.keyboard("{Escape}")],
+    ])(
+      "gives focus back to the dialog input when hidden with %s",
+      async (_name, close) => {
+        const user = userEvent.setup();
+        withDialog();
+        await screen.findByRole("button", { name: /Abrir el Workbench/ });
+        const input = screen.getByLabelText("Campo del diálogo");
+        await user.click(input);
+        await press(user);
+        const drawer = await screen.findByLabelText(
+          "Workbench (solo desarrollo)",
+        );
+        await vi.waitFor(() => expect(drawer).toHaveFocus());
+        await close(user);
+        expect(
+          screen.queryByLabelText("Workbench (solo desarrollo)"),
+        ).not.toBeInTheDocument();
+        await vi.waitFor(() => expect(input).toHaveFocus());
+        await user.keyboard("abc");
+        expect(input).toHaveValue("abc");
+      },
+    );
+
+    it("gives focus back to an app input without a dialog", async () => {
+      const user = userEvent.setup();
+      render(
+        <>
+          <TextField label="Campo" />
+          <WorkbenchConsole />
+        </>,
+      );
+      await screen.findByRole("button", { name: /Abrir el Workbench/ });
+      const input = screen.getByLabelText("Campo");
+      await user.click(input);
+      await press(user);
+      const drawer = await screen.findByLabelText(
+        "Workbench (solo desarrollo)",
+      );
+      await vi.waitFor(() => expect(drawer).toHaveFocus());
+      await press(user);
+      await vi.waitFor(() => expect(input).toHaveFocus());
+    });
+
+    it("ignores Shift+E and Ctrl+E typed into an input", async () => {
+      const user = userEvent.setup();
+      render(
+        <>
+          <TextField label="Campo" />
+          <WorkbenchConsole />
+        </>,
+      );
+      await screen.findByRole("button", { name: /Abrir el Workbench/ });
+      await user.click(screen.getByLabelText("Campo"));
+      await user.keyboard("{Shift>}e{/Shift}");
+      await user.keyboard("{Control>}e{/Control}");
+      expect(screen.getByLabelText("Campo")).toHaveValue("e");
+      expect(
+        screen.queryByLabelText("Workbench (solo desarrollo)"),
+      ).not.toBeInTheDocument();
+    });
   });
 });
