@@ -28,3 +28,14 @@ export const toRecoveryError = (cause: unknown): RecoveryApiError => {
 /** Shown when another person updated the case before this save. */
 export const VERSION_CONFLICT_MESSAGE =
   "Otra persona actualizó este caso mientras lo revisabas. Se cargó la versión más reciente; revisa y vuelve a intentar.";
+
+/** The backend may answer a second open case for the same target with a 500. */
+export const DUPLICATE_OPEN_CASE_MESSAGE =
+  "No se pudo abrir la corrección. Puede que ya haya otra en curso para este pago o comprobante; revisa en Caja › Correcciones e inténtalo de nuevo.";
+
+/**
+ * What to show when opening a case fails. A 500 never shows the server's text
+ * (it can carry internal detail); everything else keeps the backend's Spanish.
+ */
+export const createCaseErrorMessage = (error: RecoveryApiError): string =>
+  error.status >= 500 ? DUPLICATE_OPEN_CASE_MESSAGE : error.message;

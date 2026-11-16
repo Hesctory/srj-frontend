@@ -27,6 +27,8 @@ interface Props {
   cause: RecoveryCause | "";
   /** The single-use token while it still matches the lines and cause on screen; `null` otherwise. */
   onTokenChange: (token: string | null) => void;
+  /** A token the backend refused: it is dropped here and the person recalculates. */
+  expiredToken?: string | null;
 }
 
 /**
@@ -41,6 +43,7 @@ export const ReplacementPaymentSection = ({
   paymentId,
   cause,
   onTokenChange,
+  expiredToken = null,
 }: Props) => {
   const dataProvider = useDataProvider<AppDataProvider>();
   const { data: methods = NO_METHODS, isLoading } = useGetList<PaymentMethod>(
@@ -62,7 +65,11 @@ export const ReplacementPaymentSection = ({
     () => JSON.stringify({ cause, lines: draft.lines }),
     [cause, draft.lines],
   );
-  const current = preview?.signature === signature ? preview.response : null;
+  const current =
+    preview?.signature === signature &&
+    preview.response.previewToken !== expiredToken
+      ? preview.response
+      : null;
   const token = current?.previewToken ?? null;
 
   useEffect(() => onTokenChange(token), [token, onTokenChange]);
