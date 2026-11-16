@@ -1,3 +1,5 @@
+import { toApiError } from "@/utils/api-error";
+
 /**
  * A backend refusal, flattened into what the UI reacts to.
  *
@@ -33,24 +35,8 @@ const FALLBACK_MESSAGE =
   "No se pudo completar la operación. Inténtalo nuevamente.";
 
 export const toPaymentError = (cause: unknown): PaymentApiError => {
-  const { status, body } = (cause ?? {}) as { status?: number; body?: unknown };
-  const payload = (body ?? {}) as {
-    message?: string;
-    errors?: Record<string, string>;
-  };
-  const fieldErrors = payload.errors ?? {};
-  const httpStatus = typeof status === "number" ? status : 0;
-
-  return {
-    status: httpStatus,
-    message:
-      payload.message ??
-      Object.values(fieldErrors)[0] ??
-      GENERIC_MESSAGE[httpStatus] ??
-      FALLBACK_MESSAGE,
-    fieldErrors,
-    isStale: httpStatus === 409,
-  };
+  const error = toApiError(cause, GENERIC_MESSAGE, FALLBACK_MESSAGE);
+  return { ...error, isStale: error.status === 409 };
 };
 
 /** The 422 key for a boleta above S/ 700 whose payer has no DNI or CE. */

@@ -21,7 +21,10 @@ import { parseAmount } from "@/features/cashier/tuition/utils/payments";
 
 interface TenderLinesEditorProps {
   draft: PaymentDraftController;
-  target: PaymentTarget;
+  /** What is being settled. Omit when there is no balance to show (a replacement). */
+  target?: PaymentTarget;
+  /** The operative date is the server's today unless backdating; omit it where it does not apply. */
+  hideDate?: boolean;
   methods: PaymentMethod[];
   loadingMethods: boolean;
   /** Validation stays quiet until the cashier has tried to submit once. */
@@ -77,6 +80,7 @@ const SectionHeading = ({ children }: { children: string }) => (
 const TenderLinesEditor = ({
   draft,
   target,
+  hideDate = false,
   methods,
   loadingMethods,
   showErrors,
@@ -87,56 +91,60 @@ const TenderLinesEditor = ({
     {/* What is being settled — one row, concept against figure. It was three
         stacked lines for a single fact; the label stays only on the money side,
         where "is this the charge or the balance?" is a question worth answering. */}
-    <Paper
-      variant="outlined"
-      sx={{
-        p: 1.5,
-        borderLeft: 4,
-        borderLeftColor: "warning.main",
-        display: "flex",
-        alignItems: "flex-start",
-        justifyContent: "space-between",
-        gap: 2,
-      }}
-    >
-      <Box minWidth={0}>
-        <Typography variant="subtitle2" sx={{ wordBreak: "break-word" }}>
-          {target.label}
-        </Typography>
-        {target.hint && (
-          <Typography variant="caption" color="text.secondary">
-            {target.hint}
+    {target && (
+      <Paper
+        variant="outlined"
+        sx={{
+          p: 1.5,
+          borderLeft: 4,
+          borderLeftColor: "warning.main",
+          display: "flex",
+          alignItems: "flex-start",
+          justifyContent: "space-between",
+          gap: 2,
+        }}
+      >
+        <Box minWidth={0}>
+          <Typography variant="subtitle2" sx={{ wordBreak: "break-word" }}>
+            {target.label}
           </Typography>
-        )}
-      </Box>
-      <Box textAlign="right" flexShrink={0}>
-        <Typography
-          variant="caption"
-          color="text.secondary"
-          sx={{ display: "block" }}
-        >
-          Saldo
-        </Typography>
-        <Typography
-          variant="h6"
-          sx={{ fontWeight: 700, fontVariantNumeric: "tabular-nums" }}
-        >
-          {formatMoney(target.outstanding)}
-        </Typography>
-      </Box>
-    </Paper>
+          {target.hint && (
+            <Typography variant="caption" color="text.secondary">
+              {target.hint}
+            </Typography>
+          )}
+        </Box>
+        <Box textAlign="right" flexShrink={0}>
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ display: "block" }}
+          >
+            Saldo
+          </Typography>
+          <Typography
+            variant="h6"
+            sx={{ fontWeight: 700, fontVariantNumeric: "tabular-nums" }}
+          >
+            {formatMoney(target.outstanding)}
+          </Typography>
+        </Box>
+      </Paper>
+    )}
 
     {/* Defaults to the server's today, so it is normally never touched. The
         rate-by-date subtlety only matters when deliberately backdating, and
         whoever does that already knows why — it does not earn a helper line. */}
-    <TextField
-      label="Fecha de operación"
-      type="date"
-      value={draft.date}
-      onChange={(event) => draft.setDate(event.target.value)}
-      InputLabelProps={{ shrink: true }}
-      fullWidth
-    />
+    {!hideDate && (
+      <TextField
+        label="Fecha de operación"
+        type="date"
+        value={draft.date}
+        onChange={(event) => draft.setDate(event.target.value)}
+        InputLabelProps={{ shrink: true }}
+        fullWidth
+      />
+    )}
 
     {/* Tenders */}
     <Box component="section">
@@ -354,7 +362,7 @@ const TenderLinesEditor = ({
         color={draft.totalIssue ? "error.main" : "text.secondary"}
       >
         {draft.totalIssue
-          ? `${draft.totalIssue} Máximo: ${formatMoney(target.outstanding)}.`
+          ? `${draft.totalIssue} Máximo: ${formatMoney(target?.outstanding ?? 0)}.`
           : draft.total > 0
             ? `Quedaría pendiente ${formatMoney(draft.remaining)}`
             : "La comisión de tarjeta se cobra encima del monto."}

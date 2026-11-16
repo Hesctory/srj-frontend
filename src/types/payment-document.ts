@@ -74,6 +74,8 @@ export interface PaymentDocument {
   /** SUNAT's own words on a rejection. Display verbatim — never paraphrase. */
   sunatMessage: string | null;
   createdAt: IsoDateTime;
+  /** The open recovery case correcting this comprobante (or its payment). */
+  openRecoveryCaseId: number | null;
 }
 
 export interface PaymentDocumentLine {

@@ -31,13 +31,14 @@ Durable recovery cases for correcting payments and payment documents.
   "updatedAt": "2026-08-19T14:30:00Z",      // ISO 8601
   "completedAt": "2026-08-19T14:30:00Z",    // string | null — ISO 8601
   "availableActions": ["…"],                // array | null
+  "plannedSteps": ["RECONCILE_DOCUMENT"],   // array | null
   "findings": [
     {
       "id": 1,
       "code": "VOIDED_PAYMENT_HAS_LIVE_ALLOCATIONS",  // "VOIDED_PAYMENT_HAS_LIVE_ALLOCATIONS" | "VOIDED_PAYMENT_HAS_LIVE_MOVEMENTS" | "VOIDED_PAYMENT_HAS_ACTIVE_DOCUMENT" | "ACTIVE_PAYMENT_HAS_PARTIAL_VOID" | "STALE_SENT_DOCUMENT" | "ACCEPTED_CREDIT_NOTE_UNFINISHED" | "EXPIRED_RECOVERY_LEASE" | "DOCUMENT_AMOUNT_MISMATCH" — string | null
       "entityKind": "…",                              // string | null
       "entityId": 1,
-      "severity": "…",                                // string | null
+      "severity": "CRITICAL",                         // "CRITICAL" | "WARNING" — string | null
       "detectedAt": "2026-08-19T14:30:00Z",           // ISO 8601
       "lastSeenAt": "2026-08-19T14:30:00Z",           // ISO 8601
       "resolvedAt": "2026-08-19T14:30:00Z"            // string | null — ISO 8601
@@ -46,9 +47,9 @@ Durable recovery cases for correcting payments and payment documents.
   "events": [
     {
       "id": 1,
-      "eventType": "…",                     // string | null
-      "status": "…",                        // string | null
-      "step": "…",                          // string | null
+      "eventType": "CREATED",               // "CREATED" | "DETECTED" | "RESOLVED" | "CREDIT_NOTE_CREATED" | "CREDIT_NOTE_RECOVERED" | "WAITING_EXTERNAL" | "NEEDS_REVIEW" | "RETRY_SCHEDULED" | "LOCAL_FINALIZED" | "COMPLETED" — string | null
+      "status": "QUEUED",                   // "QUEUED" | "WAITING_EXTERNAL" | "NEEDS_REVIEW" | "COMPLETED" | "CANCELLED" — string | null
+      "step": "RECONCILE_DOCUMENT",         // "RECONCILE_DOCUMENT" | "CREATE_CREDIT_NOTE" | "FILE_CREDIT_NOTE" | "FINALIZE_LOCALLY" | "GENERATE_REPLACEMENT_DOCUMENT" | "VERIFY" — string | null
       "message": "…",                       // string | null
       "actorUserId": 1,                     // number | null
       "createdAt": "2026-08-19T14:30:00Z"   // ISO 8601

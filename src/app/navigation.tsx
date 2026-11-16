@@ -20,6 +20,7 @@ import SavingsIcon from "@mui/icons-material/Savings";
 import CategoryIcon from "@mui/icons-material/Category";
 import WorkIcon from "@mui/icons-material/Work";
 import MenuBookIcon from "@mui/icons-material/MenuBook";
+import RuleFolderIcon from "@mui/icons-material/RuleFolder";
 import PaymentsIcon from "@mui/icons-material/Payments";
 import LayersIcon from "@mui/icons-material/Layers";
 import FormatListNumberedIcon from "@mui/icons-material/FormatListNumbered";
@@ -29,7 +30,7 @@ import FormatListNumberedIcon from "@mui/icons-material/FormatListNumbered";
  * resolves it (see `MyMenu`); this config only says which item wants one, so a
  * static tree stays static.
  */
-export type MenuBadge = "pending-payment-documents";
+export type MenuBadge = "pending-payment-documents" | "recovery-needs-review";
 
 /** A screen. `path` is a resource (`/<name>`) or a custom route. */
 export type MenuLeaf = {
@@ -67,6 +68,12 @@ export const menu: MenuEntry[] = [
     icon: <PointOfSaleIcon />,
     children: [
       { name: "Pensiones", path: "/cashier/tuition", icon: <PaymentsIcon /> },
+      {
+        name: "Correcciones",
+        path: "/payment-recovery-cases",
+        icon: <RuleFolderIcon />,
+        badge: "recovery-needs-review",
+      },
     ],
   },
   {

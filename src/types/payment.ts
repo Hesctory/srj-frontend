@@ -198,6 +198,8 @@ export interface PaymentAllocation {
 }
 
 /** `GET /api/payments/{id}`. */
+export type PaymentPartyType = "STUDENT" | "GUARDIAN" | "PROVIDER" | "STAFF";
+
 export interface Payment {
   id: number;
   date: IsoDate;
@@ -211,6 +213,15 @@ export interface Payment {
   createdBy: number | null;
   tenders: PaymentTender[];
   allocations: PaymentAllocation[];
+  /** The one party the payment settles, even when voided. */
+  partyTypeCode: PaymentPartyType | null;
+  partyId: number | null;
+  /** Surname first for people; the business name for a provider. */
+  partyName: string | null;
+  /** The payment's comprobante that is not voided, if any. */
+  activeDocumentId: number | null;
+  activeDocumentNumber: string | null;
+  openRecoveryCaseId: number | null;
 }
 
 export interface PaymentMethod {
